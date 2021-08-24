@@ -157,15 +157,7 @@ publishing{
                 name = metadata.displayName
                 artifactId = metadata.name
                 description = metadata.description
-
-                url = {
-                    if(metadata.repo != null && !metadata.repo.isEmpty()){
-                        return "https://github.com/$metadata.repo"
-                    }else{
-                        println "Warning, the repo is unset"
-                        return null
-                    }
-                }.call()
+                url =  "https://github.com/$metadata.repo"
 
                 licenses{
                     license{
