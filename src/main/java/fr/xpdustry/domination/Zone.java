@@ -14,15 +14,15 @@ import mindustry.gen.*;
 import static mindustry.Vars.*;
 
 
-public class Zone {
+public class Zone{
     public final int x;
     public final int y;
 
     private transient int radius;
     private transient float[] area;
 
-    private transient Team team = Team.derelict;
-    private transient float percent = 100F;
+    private transient Team team;
+    private transient float percent;
     private transient final IntIntMap map;
 
     private static final Seq<Effect> effects = Seq.with(Fx.mine, Fx.mineBig, Fx.mineHuge);
@@ -30,10 +30,11 @@ public class Zone {
     public Zone(int x, int y, int radius){
         this.x = x;
         this.y = y;
-        setRadius(radius);
         // Generates a circle for rendering
-        this.area = Geometry.regPoly((int)(this.radius * Mathf.pi), this.radius);
+        setRadius(radius);
         this.map = new IntIntMap(state.teams.getActive().size);
+        // Set the default values for a new game
+        reset();
     }
 
     public void update(float captureRate){
@@ -91,6 +92,12 @@ public class Zone {
 
     public float getPercent(){
         return percent;
+    }
+
+    public void reset(){
+        team = Team.derelict;
+        percent = 100F;
+        map.clear();
     }
 
     @Override

@@ -64,8 +64,8 @@ dependencies{
 
 
 compileJava{
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
+    sourceCompatibility = JavaVersion.VERSION_15
+    targetCompatibility = JavaVersion.VERSION_15
     options.encoding = "UTF-8"
 }
 
