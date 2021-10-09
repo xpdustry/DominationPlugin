@@ -1,5 +1,29 @@
-/.idea/
-/.vscode/
-/.gradle/
-
+## Gradle
+.gradle/
 build/
+
+## Java
+*.class
+hs_err_pid*
+crash-report-*
+
+## Intellij
+.idea/
+*.ipr
+*.iws
+*.iml
+
+## Eclipse
+bin/
+.metadata/
+.settings/
+.classpath
+.project
+.loadpath
+
+## VSCode
+.vscode/
+
+## OS Specific
+.DS_Store
+Thumbs.db

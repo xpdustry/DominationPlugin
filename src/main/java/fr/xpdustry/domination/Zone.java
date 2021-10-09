@@ -1,64 +1,70 @@
 package fr.xpdustry.domination;
 
 import arc.struct.*;
-import arc.struct.IntIntMap.*;
+import arc.struct.ObjectIntMap.*;
 
+import mindustry.*;
 import mindustry.game.*;
 import mindustry.gen.*;
 
-import fr.xpdustry.domination.DominationPlugin.*;
+import com.google.gson.*;
+import com.google.gson.stream.*;
 
-import static mindustry.Vars.*;
+import java.io.*;
 
 
 public class Zone{
-    public final int x;
-    public final int y;
+    private final int x;
+    private final int y;
 
     private transient Team team;
     private transient float percent;
-    private transient final IntIntMap map;
 
     public Zone(int x, int y){
         this.x = x;
         this.y = y;
-        this.map = new IntIntMap();
-        // Set the default values for a new game
-        reset();
+        reset(); // Set the default values for a new game
     }
 
-    public void update(DominationSettings settings){
+    public int getX(){
+        return x;
+    }
+
+    public int getY(){
+        return y;
+    }
+
+    public void update(DominationMap map){
         // Reset the team if the team got beaten
         if(!team.active()) team = Team.derelict;
-        // Clears the map of the previous results
-        map.clear(state.teams.getActive().size);
 
         // Count the number of players in the zone, per team
+        ObjectIntMap<Team> players = new ObjectIntMap<>();
         Groups.player.each(p -> {
-            if(p.within(x * tilesize, y * tilesize, settings.zoneRadius * tilesize)){
-                map.increment(p.team().id);
+            if(p.within(x * Vars.tilesize, y * Vars.tilesize, map.getZoneRadius() * Vars.tilesize)){
+                players.increment(p.team());
             }
         });
 
         // Search for the team with the most players
-        Entry winner = new Entry();
-        boolean freeze = false; // If 2 teams have the same number of players, don't update.
-        for(Entry entry : map){
-            if(entry.value > winner.value){
-                winner = entry;
-                freeze = false;
-            }else if(entry.value == winner.value){
-                freeze = true;
+        int maxPlayers = 0;
+        Team winner = Team.derelict;
+        for(Entry<Team> entry : players){
+            if(entry.value > maxPlayers){
+                winner = entry.key;
+            }else if(entry.value == maxPlayers){
+                // If 2 teams have the same number of players, don't update so set back to derelict.
+                winner = Team.derelict;
             }
         }
 
         // Updates the zone values
-        if(winner.key != 0 && !freeze){ // winner.key != 0 -> 0 is the id of derelict
-            if(team.id == winner.key){
-                percent = Math.min(percent + settings.captureRate, 100F);
+        if(winner != Team.derelict){
+            if(team == winner){
+                percent = Math.min(percent + map.getCaptureRate(), 100F);
             }else{
-                percent = Math.max(percent - settings.captureRate, 0F);
-                if(percent == 0) team = Team.get(winner.key);
+                percent = Math.max(percent - map.getCaptureRate(), 0F);
+                if(percent == 0) team = winner;
             }
         }
     }
@@ -74,7 +80,6 @@ public class Zone{
     public void reset(){
         team = Team.derelict;
         percent = 100F;
-        map.clear();
     }
 
     @Override
@@ -84,5 +89,36 @@ public class Zone{
         ", team=" + team +
         ", percent=" + percent +
         '}';
+    }
+
+    public static class ZoneAdapter extends TypeAdapter<Zone>{
+        @Override
+        public void write(JsonWriter writer, Zone value) throws IOException{
+            if(value == null){
+                writer.nullValue();
+            }else{
+                writer.value(value.getX() + ", " + value.getY());
+            }
+        }
+
+        @Override
+        public Zone read(JsonReader reader) throws IOException{
+            if(reader.peek() == JsonToken.NULL){
+                reader.nextNull();
+                return null;
+            }
+
+            String text = reader.nextString();
+            String[] coords = text.split(",");
+
+            for(int i = 0; i < coords.length; i++){
+                coords[i] = coords[i].trim();
+            }
+
+            return new Zone(
+                Integer.parseInt(coords[0]),
+                Integer.parseInt(coords[1])
+            );
+        }
     }
 }

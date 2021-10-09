@@ -1,8 +1,8 @@
-#  DominationPlugin
+# TemplatePlugin
 
-[![Jitpack latest version](https://jitpack.io/v/fr.xpdustry/DominationPlugin.svg)](https://jitpack.io/#fr.xpdustry/DominationPlugin)
-[![Build status](https://github.com/Xpdustry/DominationPlugin/actions/workflows/build.yml/badge.svg?branch=master&event=push)](https://github.com/Xpdustry/DominationPlugin/actions/workflows/build.yml)
-[![Mindustry 5.0 | 6.0](https://img.shields.io/badge/Mindustry-5.0%20%7C%206.0-ffd37f)](https://github.com/Anuken/Mindustry/releases)
+[![Jitpack latest version](https://jitpack.io/v/fr.xpdustry/TemplatePlugin.svg)](https://jitpack.io/#fr.xpdustry/TemplatePlugin)
+[![Build status](https://github.com/Xpdustry/TemplatePlugin/actions/workflows/build.yml/badge.svg?branch=master&event=push)](https://github.com/Xpdustry/TemplatePlugin/actions/workflows/build.yml)
+[![Mindustry 5.0 | 6.0 | 7.0 ](https://img.shields.io/badge/Mindustry-5.0%20%7C%206.0%20%7C%207.0-ffd37f)](https://github.com/Anuken/Mindustry/releases)
 
 ## Description
 
@@ -20,27 +20,9 @@ This template features some cool stuff such as:
 
 ## Tips and nice things to know
 
-- When you use this template, make sure you change the information in `plugin.json`
-  and set the `serverDirectoryPath`, `group` and `mindustryVersion` properties in `build.gradle`.
-  There is also the `rootProject.name` property in `settings.gradle`.
+- When you use this template, make sure to edit `plugin.json` and `gradle.properties`.
   
-- The plugin compiles to java 8 for compatibility reasons,
+- The plugin compiles to java 8 for maximum compatibility,
   but nothing keeps you to change the compiler target or source to a higher jdk.
-
-- For faster testing, I recommend you to add an exit statement at the end of your server startup script such as:
-
-`run_server.bat` 
-```batch
-@echo off
-java -jar server.jar
-exit
-```
-
-`run_server.sh`
-```shell
-#!/usr/bin/env bash
-java -jar server.jar
-exit
-```
 
 Thank you for using this template !
