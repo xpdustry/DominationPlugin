@@ -4,6 +4,7 @@ import arc.math.*;
 import arc.math.geom.*;
 import arc.struct.*;
 import arc.util.*;
+
 import mindustry.*;
 import mindustry.content.*;
 import mindustry.entities.*;
@@ -23,6 +24,10 @@ public class DominationMap implements Iterable<Zone>{
     private final ArrayList<Zone> zones = new ArrayList<>();
 
     private static final Seq<Effect> effects = Seq.with(Fx.mine, Fx.mineBig, Fx.mineHuge);
+
+    public void update(){
+        zones.forEach(z -> z.update(this));
+    }
 
     public int getZoneRadius(){
         return zoneRadius;
@@ -64,6 +69,10 @@ public class DominationMap implements Iterable<Zone>{
         return new ArrayList<>(zones);
     }
 
+    public int getZoneNumber(){
+        return zones.size();
+    }
+
     public void addZone(Zone zone){
         zones.add(zone);
     }
@@ -85,24 +94,6 @@ public class DominationMap implements Iterable<Zone>{
         }
 
         return null;
-    }
-
-    @Override
-    public Iterator<Zone> iterator(){
-        return zones.listIterator();
-    }
-
-    @Override
-    public void forEach(Consumer<? super Zone> action){
-        Objects.requireNonNull(action);
-        for(Zone zone : zones){
-            action.accept(zone);
-        }
-    }
-
-    @Override
-    public Spliterator<Zone> spliterator(){
-        return zones.spliterator();
     }
 
     public float getShowdownDuration(){
@@ -146,21 +137,39 @@ public class DominationMap implements Iterable<Zone>{
         });
     }
 
-    public void drawZoneTexts(){
+    public void drawZoneTexts(float lifetime){
         zones.forEach(z -> {
             String percent = Strings.format("[#@]@%", z.getTeam().color, Strings.fixed(z.getPercent(), 0));
-            Call.label(percent, 1.0F / 6, z.getX() * Vars.tilesize, z.getY() * Vars.tilesize);
+            Call.label(percent, lifetime, z.getX() * Vars.tilesize, z.getY() * Vars.tilesize);
         });
     }
 
-    public void drawZoneTexts(NetConnection con){
+    public void drawZoneTexts(NetConnection con, float lifetime){
         zones.forEach(z -> {
             String percent = Strings.format("[#@]@%", z.getTeam().color, Strings.fixed(z.getPercent(), 0));
-            Call.label(con, percent, 1.0F / 6, z.getX() * Vars.tilesize, z.getY() * Vars.tilesize);
+            Call.label(con, percent, lifetime, z.getX() * Vars.tilesize, z.getY() * Vars.tilesize);
         });
     }
 
     public float[] createZoneCircle(){
         return Geometry.regPoly((int)(Mathf.pi * zoneRadius), zoneRadius);
+    }
+
+    @Override
+    public Iterator<Zone> iterator(){
+        return zones.listIterator();
+    }
+
+    @Override
+    public void forEach(Consumer<? super Zone> action){
+        Objects.requireNonNull(action);
+        for(Zone zone : zones){
+            action.accept(zone);
+        }
+    }
+
+    @Override
+    public Spliterator<Zone> spliterator(){
+        return zones.spliterator();
     }
 }

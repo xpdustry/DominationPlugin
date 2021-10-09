@@ -52,6 +52,7 @@ public class Zone{
         for(Entry<Team> entry : players){
             if(entry.value > maxPlayers){
                 winner = entry.key;
+                maxPlayers = entry.value;
             }else if(entry.value == maxPlayers){
                 // If 2 teams have the same number of players, don't update so set back to derelict.
                 winner = Team.derelict;
@@ -106,10 +107,7 @@ public class Zone{
                 coords[i] = coords[i].trim();
             }
 
-            return new Zone(
-                Integer.parseInt(coords[0]),
-                Integer.parseInt(coords[1])
-            );
+            return new Zone(Integer.parseInt(coords[0]), Integer.parseInt(coords[1]));
         }
     }
 }

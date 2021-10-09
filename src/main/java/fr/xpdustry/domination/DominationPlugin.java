@@ -3,7 +3,7 @@ package fr.xpdustry.domination;
 import arc.*;
 import arc.files.*;
 import arc.struct.*;
-import arc.struct.ObjectFloatMap.*;
+import arc.struct.ObjectMap.*;
 import arc.util.*;
 
 import mindustry.*;
@@ -19,27 +19,24 @@ import fr.xpdustry.domination.Zone.*;
 import com.google.gson.*;
 import com.google.gson.reflect.*;
 
-
 import java.util.*;
 
 
 @SuppressWarnings("unused")
 public class DominationPlugin extends Plugin{
     private static boolean showdown = false;
-    private static final Interval interval = new Interval(3);
+    private static final Interval timers = new Interval(3);
     private static final ObjectSet<Playerc> editors = new ObjectSet<>();
-
-    private static final ObjectFloatMap<Team> leaderboard = new ObjectFloatMap<>();
+    private static final OrderedMap<Team, Float> leaderboard = new OrderedMap<>();
 
     private static final Gson gson;
     private static final TreeMap<String, DominationMap> dominationMaps = new TreeMap<>();
     private static final Fi configFile = new Fi(Core.files.external("domination-config.json").absolutePath());
 
     private static final int
-        LOGIC_TIMER_SLOT = 0,
-        COUNTDOWN_TIMER_SLOT = 1,
-        GRAPHICS_TIMER_SLOT = 2;
-
+        LOGIC_TIMER = 0,
+        COUNTDOWN_TIMER = 1,
+        GRAPHICS_TIMER = 2;
 
     static{
         gson = new GsonBuilder()
@@ -61,15 +58,14 @@ public class DominationPlugin extends Plugin{
         // Main
         Events.run(Trigger.update, () -> {
             if(isActive()){
-                if(interval.get(LOGIC_TIMER_SLOT, getCurrentMap().getUpdateTicks())){
-                    // Updates the zone internal data
-                    getCurrentMap().forEach(z -> z.update(getCurrentMap()));
+                if(timers.get(LOGIC_TIMER, getCurrentMap().getUpdateTicks())){
+                    getCurrentMap().update();
                     // Updates the leaderboard [team -> percent_captured]
                     leaderboard.clear(Vars.state.teams.active.size + 1);
-                    getCurrentMap().forEach(z -> leaderboard.increment(z.getTeam(), 0, z.getPercent()));
+                    getCurrentMap().forEach(z -> leaderboard.put(z.getTeam(), leaderboard.get(z.getTeam(), 0F) + z.getPercent()));
                 }
 
-                if(interval.get(COUNTDOWN_TIMER_SLOT, (showdown ? getCurrentMap().getShowdownDuration() : getCurrentMap().getGameDuration()) * Time.toMinutes)){
+                if(timers.get(COUNTDOWN_TIMER, (showdown ? getCurrentMap().getShowdownDuration() : getCurrentMap().getGameDuration()) * Time.toMinutes)){
                     List<Team> winners = getWinners();
                     if(winners.size() == 0){
                         Events.fire(new GameOverEvent(Team.derelict));
@@ -81,27 +77,23 @@ public class DominationPlugin extends Plugin{
                 }
             }
 
-            if(interval.get(GRAPHICS_TIMER_SLOT, Time.toSeconds / 6)){
+            if(timers.get(GRAPHICS_TIMER, Time.toSeconds / 6)){
                 if(isActive()){
                     // HUD text
                     StringBuilder builder = new StringBuilder(100);
 
                     getCurrentMap().drawZoneCircles();
-                    getCurrentMap().drawZoneTexts();
+                    getCurrentMap().drawZoneTexts(1F / 6);
 
                     // Time remaining
-                    int time = (int)(((showdown ? Time.toMinutes : getCurrentMap().getGameDuration() * Time.toMinutes) - interval.getTime(1)) / Time.toSeconds);
-                    builder.append(Strings.format("@Time remaining > @@", (showdown ? "[red]" : ""), Strings.formatMillis(time * 1000L), (showdown ? "[]" : "")));
-
-                    // Unclaimed zones
-                    if(leaderboard.containsKey(Team.derelict)){
-                        builder.append(Strings.format("\n[#@]unclaimed[] > @%", Team.derelict.color, (int)leaderboard.get(Team.derelict, 0F)));
-                    }
+                    builder.append(showdown ? "[red]" : "");
+                    builder.append(Strings.format("Time remaining > @", Strings.formatMillis(getRemainingTime())));
+                    builder.append(showdown ? "[]" : "");
 
                     // Leaderboard
-                    Seq<Entry<Team>> orderedLeaderboard = Seq.with(leaderboard.entries()).sort(Comparator.comparing(a -> a.key));
-                    orderedLeaderboard.each(entry -> {
-                        if(entry.key != Team.derelict) builder.append(Strings.format("\n[#@]@[] > @%", entry.key.color, entry.key.name, (int)entry.value));
+                    leaderboard.each((team, percent) -> {
+                        String percentString = Strings.fixed(percent / getCurrentMap().getZoneNumber(), 2);
+                        builder.append(Strings.format("\n[#@]@[] > @%", team.color, team == Team.derelict ? "unclaimed" : team.name, percentString));
                     });
 
                     Call.setHudText(builder.toString());
@@ -109,9 +101,9 @@ public class DominationPlugin extends Plugin{
 
                 // Rendering for editors
                 editors.each(p -> {
-                    getCurrentMap().drawZoneCenters(p.con());
-                    if(!Vars.state.rules.pvp && Vars.state.isGame()){
-                        getCurrentMap().drawZoneCircles(p.con());
+                    if(Vars.state.isGame()){
+                        getCurrentMap().drawZoneCenters(p.con());
+                        if(!isActive()) getCurrentMap().drawZoneCircles(p.con());
                     }
                 });
             }
@@ -172,7 +164,7 @@ public class DominationPlugin extends Plugin{
                     player.sendMessage("You disabled editor mode, how unfortunate...");
                     break;
 
-            default: player.sendMessage(Strings.format("'@' is not a valid option.", args[0]));
+                default: player.sendMessage(Strings.format("'@' is not a valid option.", args[0]));
             }
         });
     }
@@ -192,40 +184,8 @@ public class DominationPlugin extends Plugin{
         Log.info("Domination maps have been saved.");
     }
 
-    public static boolean isActive(){
-        return Vars.state.rules.pvp && !Vars.state.isMenu() && !Vars.state.gameOver;
-    }
-
-    @Nullable
-    public static DominationMap getMap(String name){
-        return dominationMaps.get(name);
-    }
-
-    public static DominationMap getCurrentMap(){
-        return dominationMaps.computeIfAbsent(Vars.state.map.name(), k -> new DominationMap());
-    }
-
-    public static List<Team> getWinners(){
-        float maxPercent = 0F;
-        List<Team> winners = new ArrayList<>();
-
-        for(Entry<Team> entry : leaderboard.entries()){
-            if(entry.key == Team.derelict) continue;
-
-            if(entry.value > maxPercent){
-                winners.clear();
-                winners.add(entry.key);
-                maxPercent = entry.value;
-            }else if(entry.value == maxPercent){
-                winners.add(entry.key);
-            }
-        }
-
-        return winners;
-    }
-
     public static void resetGameCountdown(){
-        interval.reset(COUNTDOWN_TIMER_SLOT, 0);
+        timers.reset(COUNTDOWN_TIMER, 0);
     }
 
     public static void triggerShowdown(List<Team> teams){
@@ -246,5 +206,43 @@ public class DominationPlugin extends Plugin{
                 Call.sendMessage(Strings.format("Team [#@]@[] has been reduced to ashes...", data.team.color, data.team.name));
             }
         }
+    }
+
+    @Nullable
+    public static DominationMap getMap(String name){
+        return dominationMaps.get(name);
+    }
+
+    public static DominationMap getCurrentMap(){
+        return dominationMaps.computeIfAbsent(Vars.state.map.name(), k -> new DominationMap());
+    }
+
+    public static List<Team> getWinners(){
+        float maxPercent = 0F;
+        List<Team> winners = new ArrayList<>();
+
+        for(Entry<Team, Float> entry : leaderboard.entries()){
+            if(entry.key == Team.derelict) continue;
+
+            if(entry.value > maxPercent){
+                winners.clear();
+                winners.add(entry.key);
+                maxPercent = entry.value;
+            }else if(entry.value == maxPercent){
+                winners.add(entry.key);
+            }
+        }
+
+        return winners;
+    }
+
+    /** Returns the remaining time in milliseconds */
+    public static long getRemainingTime(){
+        float remainingTicks = ((showdown ? getCurrentMap().getShowdownDuration() : getCurrentMap().getGameDuration()) * Time.toMinutes) - timers.getTime(COUNTDOWN_TIMER);
+        return ((long)(remainingTicks / Time.toSeconds)) * 1000L;
+    }
+
+    public static boolean isActive(){
+        return Vars.state.rules.pvp && !Vars.state.isMenu() && !Vars.state.gameOver;
     }
 }
