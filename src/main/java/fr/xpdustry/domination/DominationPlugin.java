@@ -2,14 +2,10 @@ package fr.xpdustry.domination;
 
 import arc.*;
 import arc.files.*;
-import arc.math.*;
-import arc.math.geom.*;
 import arc.struct.*;
 import arc.util.*;
 
 import mindustry.*;
-import mindustry.content.*;
-import mindustry.entities.*;
 import mindustry.game.*;
 import mindustry.game.EventType.*;
 import mindustry.gen.*;
@@ -26,16 +22,20 @@ import java.util.*;
 
 @SuppressWarnings("unused")
 public class DominationPlugin extends Plugin{
-    private static boolean overtime = false;
+    private static boolean showdown = false;
     private static final Interval interval = new Interval(3);
     private static final ObjectSet<Playerc> editors = new ObjectSet<>();
 
     private static final ObjectFloatMap<Team> leaderboard = new ObjectFloatMap<>();
-    private static final Seq<Effect> effects = Seq.with(Fx.mine, Fx.mineBig, Fx.mineHuge);
 
     private static final Gson gson;
     private static final TreeMap<String, DominationMap> dominationMaps = new TreeMap<>();
-    private static final Fi config = new Fi(Core.files.external("domination-config.json").absolutePath());
+    private static final Fi configFile = new Fi(Core.files.external("domination-config.json").absolutePath());
+
+    private static final int
+        LOGIC_TIMER_SLOT = 0,
+        COUNTDOWN_TIMER_SLOT = 1,
+        GRAPHICS_TIMER_SLOT = 2;
 
 
     static{
@@ -53,62 +53,42 @@ public class DominationPlugin extends Plugin{
             if(isActive()) Vars.state.rules.modeName = "[red]Domination";
         });
 
-        Events.run(WorldLoadEvent.class, () -> {
-            interval.reset(1, 0); // Reset the timer
-        });
+        Events.run(WorldLoadEvent.class, DominationPlugin::resetGameCountdown);
 
         // Main
         Events.run(Trigger.update, () -> {
-            if(isActive() && interval.get(0, getCurrentMap().getUpdateTicks())){
-                // Updates the zone internal data
-                getCurrentMap().forEach(z -> z.update(getCurrentMap()));
-                // Updates the leaderboard [team -> percent_captured]
-                leaderboard.clear(Vars.state.teams.active.size + 1);
-                getCurrentMap().forEach(z -> leaderboard.increment(z.getTeam(), 0, z.getPercent()));
-            }
+            if(isActive()){
+                if(interval.get(LOGIC_TIMER_SLOT, getCurrentMap().getUpdateTicks())){
+                    // Updates the zone internal data
+                    getCurrentMap().forEach(z -> z.update(getCurrentMap()));
+                    // Updates the leaderboard [team -> percent_captured]
+                    leaderboard.clear(Vars.state.teams.active.size + 1);
+                    getCurrentMap().forEach(z -> leaderboard.increment(z.getTeam(), 0, z.getPercent()));
+                }
 
-            if(isActive() && interval.get(1, (overtime ? 1 : getCurrentMap().getGameDuration()) * Time.toMinutes)){
-                var winners = getWinners();
-                if(winners.size() == 0){
-                    Events.fire(new GameOverEvent(Team.derelict));
-                }else if(winners.size() == 1){
-                    Events.fire(new GameOverEvent(winners.get(0)));
-                }else{
-                    for(var data : Vars.state.teams.getActive()){
-                        if(!winners.contains(data.team)){
-                            data.cores.each(CoreBuild::kill);
-                            Call.sendMessage(Strings.format("Team [@]@[] has been reduced to ashes...", data.team.color, data.team.name));
-                        }
+                if(interval.get(COUNTDOWN_TIMER_SLOT, (showdown ? getCurrentMap().getShowdownDuration() : getCurrentMap().getGameDuration()) * Time.toMinutes)){
+                    var winners = getWinners();
+                    if(winners.size() == 0){
+                        Events.fire(new GameOverEvent(Team.derelict));
+                    }else if(winners.size() == 1){
+                        Events.fire(new GameOverEvent(winners.get(0)));
+                    }else{
+                        triggerShowdown(winners);
                     }
-
-                    overtime = true;
-                    Call.sendMessage("[red]OVERTIME, +1 minute.");
-                    interval.reset(1, 0);
                 }
             }
 
-            if(interval.get(2, Time.toSeconds / 6)){
-                // HUD text
-                StringBuilder builder = new StringBuilder(100);
-                // Generate a circle for the zone rendering
-                int radius = getCurrentMap().getZoneRadius();
-                float[] circle = Geometry.regPoly((int)(Mathf.pi * radius), radius);
-
+            if(interval.get(GRAPHICS_TIMER_SLOT, Time.toSeconds / 6)){
                 if(isActive()){
-                    getCurrentMap().forEach(z -> {
-                        // Render the circle
-                        Geometry.iteratePolygon((cx, cy) -> {
-                            Call.effect(effects.random(), (cx + z.getX()) * Vars.tilesize, (cy + z.getY()) * Vars.tilesize, 0, z.getTeam().color);
-                        }, circle);
+                    // HUD text
+                    StringBuilder builder = new StringBuilder(100);
 
-                        // Display the percent in the circles
-                        String percent = Strings.format("[#@]@%", z.getTeam().color, Strings.fixed(z.getPercent(), 0));
-                        Call.label(percent, 1.0F / 6, z.getX() * Vars.tilesize, z.getY() * Vars.tilesize);
-                    });
+                    getCurrentMap().drawZoneCircles();
+                    getCurrentMap().drawZoneTexts();
 
                     // Time remaining
-                    int time = (int)(((overtime ? 1 : getCurrentMap().getGameDuration() * Time.toMinutes) - interval.getTime(1)) / Time.toSeconds);
-                    builder.append(Strings.format("@Time remaining > @@", (overtime ? "[red]" : ""), Strings.formatMillis(time * 1000L), (overtime ? "[]" : "")));
+                    int time = (int)(((showdown ? Time.toMinutes : getCurrentMap().getGameDuration() * Time.toMinutes) - interval.getTime(1)) / Time.toSeconds);
+                    builder.append(Strings.format("@Time remaining > @@", (showdown ? "[red]" : ""), Strings.formatMillis(time * 1000L), (showdown ? "[]" : "")));
 
                     // Unclaimed zones
                     if(leaderboard.containsKey(Team.derelict)){
@@ -116,26 +96,19 @@ public class DominationPlugin extends Plugin{
                     }
 
                     // Leaderboard
-                    if(leaderboard.size > 1){
-                        leaderboard.each(entry -> {
-                            if(entry.key != Team.derelict) builder.append(Strings.format("\n[#@]@[] > @%", entry.key.color, entry.key.name, (int)entry.value));
-                        });
-                    }
+                    var orderedLeaderboard = Seq.with(leaderboard.entries()).sort(Comparator.comparing(a -> a.key));
+                    orderedLeaderboard.each(entry -> {
+                        if(entry.key != Team.derelict) builder.append(Strings.format("\n[#@]@[] > @%", entry.key.color, entry.key.name, (int)entry.value));
+                    });
 
                     Call.setHudText(builder.toString());
                 }
 
                 // Rendering for editors
                 editors.each(p -> {
-                    for(Zone zone : getCurrentMap()){
-                        Call.effect(p.con(), Fx.unitLand, zone.getX() * Vars.tilesize, zone.getY() * Vars.tilesize, 0, zone.getTeam().color);
-
-                        if(!Vars.state.rules.pvp && Vars.state.isGame()){
-                            // Render the circle
-                            Geometry.iteratePolygon((cx, cy) -> {
-                                Call.effect(p.con(), effects.random(), (cx + zone.getX()) * Vars.tilesize, (cy + zone.getY()) * Vars.tilesize, 0, zone.getTeam().color);
-                            }, circle);
-                        }
+                    getCurrentMap().drawZoneCenters(p.con());
+                    if(!Vars.state.rules.pvp && Vars.state.isGame()){
+                        getCurrentMap().drawZoneCircles(p.con());
                     }
                 });
             }
@@ -144,7 +117,7 @@ public class DominationPlugin extends Plugin{
         // Reset the zones to their original states and save the settings
         Events.run(GameOverEvent.class, () -> {
             getCurrentMap().forEach(Zone::reset);
-            overtime = false;
+            showdown = false;
             saveDominationMaps();
         });
 
@@ -200,17 +173,17 @@ public class DominationPlugin extends Plugin{
     }
 
     public static void loadDominationMaps(){
-        if(config.exists()){
-            dominationMaps.putAll(gson.fromJson(config.reader(), new TypeToken<TreeMap<String, DominationMap>>(){}.getType()));
+        if(configFile.exists()){
+            dominationMaps.putAll(gson.fromJson(configFile.reader(), new TypeToken<TreeMap<String, DominationMap>>(){}.getType()));
         }else{
-            config.writeString(gson.toJson(dominationMaps));
+            configFile.writeString(gson.toJson(dominationMaps));
         }
 
         Log.info("Domination maps have been loaded.");
     }
 
     public static void saveDominationMaps(){
-        config.writeString(gson.toJson(dominationMaps));
+        configFile.writeString(gson.toJson(dominationMaps));
         Log.info("Domination maps have been saved.");
     }
 
@@ -244,5 +217,29 @@ public class DominationPlugin extends Plugin{
         }
 
         return winners;
+    }
+
+    public static void resetGameCountdown(){
+        interval.reset(COUNTDOWN_TIMER_SLOT, 0);
+    }
+
+    public static void triggerShowdown(List<Team> teams){
+        showdown = true;
+        Call.sendMessage("[red]SHOWDOWN[].");
+        resetGameCountdown();
+
+        for(var data : Vars.state.teams.getActive()){
+            if(!teams.contains(data.team)){
+                data.cores.each(CoreBuild::kill);
+                Groups.player.each(p -> {
+                    if(p.team() == data.team){
+                        p.team(Team.derelict);
+                        p.unit().kill();
+                    }
+                });
+
+                Call.sendMessage(Strings.format("Team [#@]@[] has been reduced to ashes...", data.team.color, data.team.name));
+            }
+        }
     }
 }

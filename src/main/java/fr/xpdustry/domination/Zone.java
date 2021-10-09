@@ -82,15 +82,6 @@ public class Zone{
         percent = 100F;
     }
 
-    @Override
-    public String toString(){
-        return "Zone{" + "x=" + x +
-        ", y=" + y +
-        ", team=" + team +
-        ", percent=" + percent +
-        '}';
-    }
-
     public static class ZoneAdapter extends TypeAdapter<Zone>{
         @Override
         public void write(JsonWriter writer, Zone value) throws IOException{
