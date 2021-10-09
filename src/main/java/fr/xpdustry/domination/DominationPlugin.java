@@ -3,19 +3,22 @@ package fr.xpdustry.domination;
 import arc.*;
 import arc.files.*;
 import arc.struct.*;
+import arc.struct.ObjectFloatMap.*;
 import arc.util.*;
 
 import mindustry.*;
 import mindustry.game.*;
 import mindustry.game.EventType.*;
+import mindustry.game.Teams.*;
 import mindustry.gen.*;
 import mindustry.mod.*;
+import mindustry.world.blocks.storage.CoreBlock.*;
 
 import fr.xpdustry.domination.Zone.*;
 
 import com.google.gson.*;
 import com.google.gson.reflect.*;
-import mindustry.world.blocks.storage.CoreBlock.*;
+
 
 import java.util.*;
 
@@ -67,7 +70,7 @@ public class DominationPlugin extends Plugin{
                 }
 
                 if(interval.get(COUNTDOWN_TIMER_SLOT, (showdown ? getCurrentMap().getShowdownDuration() : getCurrentMap().getGameDuration()) * Time.toMinutes)){
-                    var winners = getWinners();
+                    List<Team> winners = getWinners();
                     if(winners.size() == 0){
                         Events.fire(new GameOverEvent(Team.derelict));
                     }else if(winners.size() == 1){
@@ -96,7 +99,7 @@ public class DominationPlugin extends Plugin{
                     }
 
                     // Leaderboard
-                    var orderedLeaderboard = Seq.with(leaderboard.entries()).sort(Comparator.comparing(a -> a.key));
+                    Seq<Entry<Team>> orderedLeaderboard = Seq.with(leaderboard.entries()).sort(Comparator.comparing(a -> a.key));
                     orderedLeaderboard.each(entry -> {
                         if(entry.key != Team.derelict) builder.append(Strings.format("\n[#@]@[] > @%", entry.key.color, entry.key.name, (int)entry.value));
                     });
@@ -143,9 +146,9 @@ public class DominationPlugin extends Plugin{
     public void registerServerCommands(CommandHandler handler){
         handler.register("domination-config", "<save/load>", "Settings for the Domination plugin...", args -> {
             switch(args[0].toLowerCase()){
-                case "save" -> saveDominationMaps();
-                case "load" -> loadDominationMaps();
-                default -> Log.info("The option '@' is invalid.", args[0].toLowerCase());
+                case "save": saveDominationMaps(); break;
+                case "load": loadDominationMaps(); break;
+                default: Log.info("The option '@' is invalid.", args[0].toLowerCase());
             }
         });
     }
@@ -159,15 +162,17 @@ public class DominationPlugin extends Plugin{
             }
 
             switch(args[0].toLowerCase()){
-                case "on" -> {
+                case "on":
                     editors.add(player);
                     player.sendMessage("You enabled editor mode, now every click will create/delete a Zone.");
-                }
-                case "off" -> {
+                    break;
+
+                case "off":
                     editors.remove(player);
                     player.sendMessage("You disabled editor mode, how unfortunate...");
-                }
-                default -> player.sendMessage(Strings.format("'@' is not a valid option.", args[0]));
+                    break;
+
+            default: player.sendMessage(Strings.format("'@' is not a valid option.", args[0]));
             }
         });
     }
@@ -204,7 +209,7 @@ public class DominationPlugin extends Plugin{
         float maxPercent = 0F;
         List<Team> winners = new ArrayList<>();
 
-        for(var entry : leaderboard.entries()){
+        for(Entry<Team> entry : leaderboard.entries()){
             if(entry.key == Team.derelict) continue;
 
             if(entry.value > maxPercent){
@@ -228,7 +233,7 @@ public class DominationPlugin extends Plugin{
         Call.sendMessage("[red]SHOWDOWN[].");
         resetGameCountdown();
 
-        for(var data : Vars.state.teams.getActive()){
+        for(TeamData data : Vars.state.teams.getActive()){
             if(!teams.contains(data.team)){
                 data.cores.each(CoreBuild::kill);
                 Groups.player.each(p -> {
