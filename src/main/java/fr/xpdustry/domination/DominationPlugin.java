@@ -73,12 +73,11 @@ public class DominationPlugin extends Plugin{
 
                 if(timers.get(COUNTDOWN_TIMER, (showdown ? getCurrentMap().getShowdownDuration() : getCurrentMap().getGameDuration()) * Time.toMinutes)){
                     List<Team> winners = getWinners();
-                    if(winners.size() == 0){
-                        Events.fire(new GameOverEvent(Team.derelict));
-                    }else if(winners.size() == 1){
-                        Events.fire(new GameOverEvent(winners.get(0)));
-                    }else{
-                        triggerShowdown(winners);
+
+                    switch(winners.size()){
+                        case 0: triggerShowdown(Vars.state.teams.getActive().map(d -> d.team).list()); break;
+                        case 1: Events.fire(new GameOverEvent(winners.get(0))); break;
+                        default: triggerShowdown(winners);
                     }
                 }
             }
@@ -99,7 +98,7 @@ public class DominationPlugin extends Plugin{
                     // Leaderboard
                     leaderboard.each((team, percent) -> {
                         String percentString = Strings.fixed(percent / getCurrentMap().getZoneNumber(), 2);
-                        builder.append(Strings.format("\n[#@]@[] > @%", team.color, team == Team.derelict ? "unclaimed" : team.name, percentString));
+                        builder.append(Strings.format("\n[#@]@[] > @%", team.color, team == Team.derelict ? "Unclaimed" : Strings.capitalize(team.name), percentString));
                     });
 
                     Call.setHudText(builder.toString());
@@ -107,7 +106,7 @@ public class DominationPlugin extends Plugin{
 
                 // Rendering for editors
                 editors.each(p -> {
-                    if(Vars.state.isGame()){
+                    if(Vars.state.isPlaying()){
                         getCurrentMap().drawZoneCenters(p.con());
                         if(!isActive()) getCurrentMap().drawZoneCircles(p.con());
                     }
@@ -196,8 +195,8 @@ public class DominationPlugin extends Plugin{
 
     public static void triggerShowdown(List<Team> teams){
         showdown = true;
-        Call.sendMessage("[red]SHOWDOWN[].");
         resetGameCountdown();
+        Call.warningToast((char)9888, "[red]SHOWDOWN ![]");
 
         for(TeamData data : Vars.state.teams.getActive()){
             if(!teams.contains(data.team)){
@@ -249,6 +248,6 @@ public class DominationPlugin extends Plugin{
     }
 
     public static boolean isActive(){
-        return Vars.state.rules.pvp && !Vars.state.isMenu() && !Vars.state.gameOver;
+        return Vars.state.rules.pvp && Vars.state.isPlaying() && !Vars.state.gameOver;
     }
 }

@@ -22,7 +22,7 @@ public class DominationMap implements Iterable<Zone>{
     private float gameDuration = 10F;
     private float showdownDuration = 3F;
     private boolean immortalCore = true;
-    private final ArrayList<Zone> zones = new ArrayList<>();
+    private final List<Zone> zones = new ArrayList<>();
 
     private static final Seq<Effect> effects = Seq.with(Fx.mine, Fx.mineBig, Fx.mineHuge);
 
@@ -30,88 +30,8 @@ public class DominationMap implements Iterable<Zone>{
         zones.forEach(z -> z.update(this));
     }
 
-    public int getZoneRadius(){
-        return zoneRadius;
-    }
-
-    public void setZoneRadius(int zoneRadius){
-        if(zoneRadius < 0) throw new IllegalArgumentException("The zone radius is negative: " + zoneRadius);
-        this.zoneRadius = zoneRadius;
-    }
-
-    public float getCaptureRate(){
-        return captureRate;
-    }
-
-    public void setCaptureRate(float captureRate){
-        if(captureRate < 0) throw new IllegalArgumentException("The capture rate is negative: " + captureRate);
-        this.captureRate = captureRate;
-    }
-
-    public float getUpdateTicks(){
-        return updateTicks;
-    }
-
-    public void setUpdateTicks(float updateTicks){
-        if(updateTicks < 0) throw new IllegalArgumentException("The update ticks is negative: " + updateTicks);
-        this.updateTicks = updateTicks;
-    }
-
-    public float getGameDuration(){
-        return gameDuration;
-    }
-
-    public void setGameDuration(float gameDuration){
-        if(gameDuration < 0) throw new IllegalArgumentException("The game duration is negative: " + gameDuration);
-        this.gameDuration = gameDuration;
-    }
-
-    public boolean hasImmortalCore(){
-        return immortalCore;
-    }
-
-    public void setImmortalCore(boolean immortalCore){
-        this.immortalCore = immortalCore;
-    }
-
-    public ArrayList<Zone> getZones(){
-        return new ArrayList<>(zones);
-    }
-
-    public int getZoneNumber(){
-        return zones.size();
-    }
-
-    public void addZone(Zone zone){
-        zones.add(zone);
-    }
-
-    public boolean hasZone(Zone zone){
-        return zones.contains(zone);
-    }
-
-    public void removeZone(Zone zone){
-        zones.remove(zone);
-    }
-
-    @Nullable
-    public Zone getZone(int x, int y){
-        for(Zone zone : zones){
-            if(zone.getX() == x && zone.getY() == y){
-                return zone;
-            }
-        }
-
-        return null;
-    }
-
-    public float getShowdownDuration(){
-        return showdownDuration;
-    }
-
-    public void setShowdownDuration(float showdownDuration){
-        if(showdownDuration < 0) throw new IllegalArgumentException("The showdown duration is negative: " + showdownDuration);
-        this.showdownDuration = showdownDuration;
+    public float[] createZoneCircle(){
+        return Geometry.regPoly((int)(Mathf.pi * zoneRadius), zoneRadius);
     }
 
     public void drawZoneCircles(){
@@ -160,8 +80,88 @@ public class DominationMap implements Iterable<Zone>{
         });
     }
 
-    public float[] createZoneCircle(){
-        return Geometry.regPoly((int)(Mathf.pi * zoneRadius), zoneRadius);
+    public int getZoneRadius(){
+        return zoneRadius;
+    }
+
+    public void setZoneRadius(int zoneRadius){
+        if(zoneRadius < 0) throw new IllegalArgumentException("The zone radius is negative: " + zoneRadius);
+        this.zoneRadius = zoneRadius;
+    }
+
+    public float getCaptureRate(){
+        return captureRate;
+    }
+
+    public void setCaptureRate(float captureRate){
+        if(captureRate < 0) throw new IllegalArgumentException("The capture rate is negative: " + captureRate);
+        this.captureRate = captureRate;
+    }
+
+    public float getUpdateTicks(){
+        return updateTicks;
+    }
+
+    public void setUpdateTicks(float updateTicks){
+        if(updateTicks < 0) throw new IllegalArgumentException("The update ticks is negative: " + updateTicks);
+        this.updateTicks = updateTicks;
+    }
+
+    public float getGameDuration(){
+        return gameDuration;
+    }
+
+    public void setGameDuration(float gameDuration){
+        if(gameDuration < 0) throw new IllegalArgumentException("The game duration is negative: " + gameDuration);
+        this.gameDuration = gameDuration;
+    }
+
+    public float getShowdownDuration(){
+        return showdownDuration;
+    }
+
+    public void setShowdownDuration(float showdownDuration){
+        if(showdownDuration < 0) throw new IllegalArgumentException("The showdown duration is negative: " + showdownDuration);
+        this.showdownDuration = showdownDuration;
+    }
+
+    public boolean hasImmortalCore(){
+        return immortalCore;
+    }
+
+    public void setImmortalCore(boolean immortalCore){
+        this.immortalCore = immortalCore;
+    }
+
+    public ArrayList<Zone> getZones(){
+        return new ArrayList<>(zones);
+    }
+
+    public int getZoneNumber(){
+        return zones.size();
+    }
+
+    public void addZone(Zone zone){
+        zones.add(zone);
+    }
+
+    public boolean hasZone(Zone zone){
+        return zones.contains(zone);
+    }
+
+    public void removeZone(Zone zone){
+        zones.remove(zone);
+    }
+
+    @Nullable
+    public Zone getZone(int x, int y){
+        for(Zone zone : zones){
+            if(zone.getX() == x && zone.getY() == y){
+                return zone;
+            }
+        }
+
+        return null;
     }
 
     @Override
