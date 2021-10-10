@@ -21,6 +21,7 @@ public class DominationMap implements Iterable<Zone>{
     private float updateTicks = Time.toSeconds;
     private float gameDuration = 10F;
     private float showdownDuration = 3F;
+    private boolean immortalCore = true;
     private final ArrayList<Zone> zones = new ArrayList<>();
 
     private static final Seq<Effect> effects = Seq.with(Fx.mine, Fx.mineBig, Fx.mineHuge);
@@ -63,6 +64,14 @@ public class DominationMap implements Iterable<Zone>{
     public void setGameDuration(float gameDuration){
         if(gameDuration < 0) throw new IllegalArgumentException("The game duration is negative: " + gameDuration);
         this.gameDuration = gameDuration;
+    }
+
+    public boolean hasImmortalCore(){
+        return immortalCore;
+    }
+
+    public void setImmortalCore(boolean immortalCore){
+        this.immortalCore = immortalCore;
     }
 
     public ArrayList<Zone> getZones(){

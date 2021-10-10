@@ -61,8 +61,14 @@ public class DominationPlugin extends Plugin{
                 if(timers.get(LOGIC_TIMER, getCurrentMap().getUpdateTicks())){
                     getCurrentMap().update();
                     // Updates the leaderboard [team -> percent_captured]
-                    leaderboard.clear(Vars.state.teams.active.size + 1);
+                    leaderboard.clear(Vars.state.teams.getActive().size + 1);
                     getCurrentMap().forEach(z -> leaderboard.put(z.getTeam(), leaderboard.get(z.getTeam(), 0F) + z.getPercent()));
+
+                    if(getCurrentMap().hasImmortalCore()){
+                        Vars.state.teams.getActive().each(t -> t.cores.each(c -> {
+                            if(c.health() < c.maxHealth()) c.heal();
+                        }));
+                    }
                 }
 
                 if(timers.get(COUNTDOWN_TIMER, (showdown ? getCurrentMap().getShowdownDuration() : getCurrentMap().getGameDuration()) * Time.toMinutes)){
