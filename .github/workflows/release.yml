@@ -1,6 +1,9 @@
 name: Release
 
-on: workflow_dispatch
+on:
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -8,29 +11,57 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.gradle/wrapper
+            ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
+      - uses: gradle/wrapper-validation-action@v1
+
       - name: Set up JDK 16
         uses: actions/setup-java@v1
         with:
           java-version: 16
 
-      - name: Build plugin jar
-        run: |
-          chmod +x ./gradlew
-          ./gradlew jar
+      - name: Build artifact
+        run: ./gradlew build
 
       - name: Set up the release
         id: release
         run: |
-          tag=$(cat plugin.json | grep "version*")       # Cut the line with the version in plugin.json
-          tag=$(echo $tag | cut -d ":" -f 2,3)           # Split with ":" and take the version number
-          tag=$(echo $tag | tr -d \"," ")                # Trim the " and , and spaces
-          echo '::set-output name=RELEASE_TAG::'$tag     # Set the environment variable
-          # Get the artifact path
+          tag=$(cat plugin.json | grep "version*")          # Cut the line with the version in plugin.json
+          tag=$(echo $tag | cut -d ":" -f 2,3)              # Split with ":" and take the version number
+          tag=$(echo $tag | tr -d \"," ")                   # Trim the " and , and spaces
+          echo '::set-output name=RELEASE_TAG::'$tag
           echo '::set-output name=ARTIFACT_PATH::'$(./gradlew getArtifactPath -q)
 
-      - name: Upload artifacts
+      - name: Set up the changelog
+        id: changelog
+        shell: bash
+        run: |
+          r=$(cat CHANGELOG.md)
+          r="${r//'%'/'%25'}"                               # Multiline escape sequences for %
+          r="${r//$'\n'/'%0A'}"                             # Multiline escape sequences for '\n'
+          r="${r//$'\r'/'%0D'}"                             # Multiline escape sequences for '\r'
+          echo "::set-output name=CHANGELOG::$r"
+
+      - name: Upload artifact
         uses: svenstaro/upload-release-action@v2
         with:
+          release_name: v${{ steps.release.outputs.RELEASE_TAG }} release
+          body: ${{ steps.changelog.outputs.CHANGELOG }}
+
           repo_token: ${{ secrets.GITHUB_TOKEN }}
+          asset_name: ${{ github.event.repository.name }}.jar
           file: ${{ steps.release.outputs.ARTIFACT_PATH }}
           tag: v${{ steps.release.outputs.RELEASE_TAG }}
+
+      - name: Publish release to Xpdustry
+        run: ./gradlew publish
+        env:
+          ORG_GRADLE_PROJECT_xpdustryUsername: "${{ secrets.XPDUSTRY_REPO_USERNAME }}"
+          ORG_GRADLE_PROJECT_xpdustryPassword: "${{ secrets.XPDUSTRY_REPO_PASSWORD }}"

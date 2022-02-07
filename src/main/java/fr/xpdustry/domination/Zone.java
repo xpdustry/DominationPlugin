@@ -1,7 +1,7 @@
 package fr.xpdustry.domination;
 
+import arc.math.geom.*;
 import arc.struct.*;
-import arc.struct.ObjectIntMap.*;
 
 import mindustry.*;
 import mindustry.game.*;
@@ -9,47 +9,39 @@ import mindustry.gen.*;
 
 import com.google.gson.*;
 import com.google.gson.stream.*;
+import org.checkerframework.checker.nullness.qual.*;
 
 import java.io.*;
+import java.util.*;
 
 
-public class Zone{
+public final class Zone implements Position{
     private final int x;
     private final int y;
 
-    private transient Team team;
-    private transient float percent;
+    private transient Team team = Team.derelict;
+    private transient float percent = 100F;
 
     public Zone(int x, int y){
         this.x = x;
         this.y = y;
-        reset(); // Set the default values for a new game
     }
 
-    public int getX(){
-        return x;
-    }
-
-    public int getY(){
-        return y;
-    }
-
-    public void update(DominationMap map){
+    public void update(@NonNull DominationMapConfig map){
         // Reset the team if the team got beaten
         if(!team.active()) team = Team.derelict;
 
         // Count the number of players in the zone, per team
         ObjectIntMap<Team> players = new ObjectIntMap<>();
         Groups.player.each(p -> {
-            if(p.within(x * Vars.tilesize, y * Vars.tilesize, map.getZoneRadius() * Vars.tilesize)){
-                players.increment(p.team());
-            }
+            if(p.within(this, map.getZoneRadius())) players.increment(p.team());
         });
 
         // Search for the team with the most players
-        int maxPlayers = 0;
-        Team winner = Team.derelict;
-        for(Entry<Team> entry : players){
+        var maxPlayers = 0;
+        var winner = Team.derelict;
+
+        for(final var entry : players){
             if(entry.value > maxPlayers){
                 winner = entry.key;
                 maxPlayers = entry.value;
@@ -70,7 +62,7 @@ public class Zone{
         }
     }
 
-    public Team getTeam(){
+    public @NonNull Team getTeam(){
         return team;
     }
 
@@ -78,30 +70,53 @@ public class Zone{
         return percent;
     }
 
-    public void reset(){
-        team = Team.derelict;
-        percent = 100F;
+    @Override public float getX(){
+        return x * Vars.tilesize;
+    }
+
+    @Override public float getY(){
+        return y * Vars.tilesize;
+    }
+
+    public int getTileX(){
+        return x;
+    }
+
+    public int getTileY(){
+        return y;
+    }
+
+    @Override public int hashCode(){
+        return Objects.hash(x, y);
+    }
+
+    @Override public boolean equals(Object o){
+        if(this == o) return true;
+        if(o == null || getClass() != o.getClass()) return false;
+        final var other = (Zone)o;
+        return x == other.x && y == other.y;
     }
 
     public static class ZoneAdapter extends TypeAdapter<Zone>{
-        @Override
-        public void write(JsonWriter writer, Zone value) throws IOException{
+        @Override public void write(JsonWriter writer, Zone value) throws IOException{
             if(value == null){
                 writer.nullValue();
             }else{
-                writer.value(value.getX() + ", " + value.getY());
+                writer.value(value.getTileX() + ", " + value.getTileY());
             }
         }
 
-        @Override
-        public Zone read(JsonReader reader) throws IOException{
+        @Override public Zone read(JsonReader reader) throws IOException{
             if(reader.peek() == JsonToken.NULL){
                 reader.nextNull();
                 return null;
             }
 
             String text = reader.nextString();
-            String[] coords = text.split(",");
+            String[] coords = text.split(",", 2);
+
+            if(coords.length != 2)
+                throw new IOException(text + " is not a coordinate.");
 
             for(int i = 0; i < coords.length; i++){
                 coords[i] = coords[i].trim();

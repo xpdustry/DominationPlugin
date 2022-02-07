@@ -1,158 +1,217 @@
 import groovy.json.JsonSlurper
 import java.nio.charset.StandardCharsets
-
+import net.ltgt.gradle.errorprone.CheckSeverity
 
 buildscript{
-    ext{
-        // Properties
-        mindustryVersion = property("props.mindustry-version")
-        serverDirectoryPath = property("props.mindustry-server-directory")
-        // Plugin metadata extracted from plugin.json
-        metadata = new JsonSlurper().parseText(file("$rootDir/plugin.json").text)
-    }
-
     repositories{
         mavenCentral()
-        maven{ url "https://www.jitpack.io" }
     }
 
     dependencies{
         classpath "org.codehaus.groovy:groovy-json:3.0.8" // <- For JsonSlurper syntax highlighting
-        classpath "com.github.Anuken.Arc:arc-core:$mindustryVersion"
+    }
+
+    ext{
+        serverDirectoryPath = System.getenv("MINDUSTRY_SERVER_HOME")
+        metadata = new JsonSlurper().parseText(file("$rootDir/plugin.json").text)
+        versions = [
+                "mindustry"     : property("props.mindustry-version"),
+                "arc"           : property("props.arc-version"),
+                "junit"         : "5.8.2",
+                "distributor"   : "2.3.0-SNAPSHOT",
+                "lombok"        : "1.18.22",
+                "store"         : "1.2.0"
+        ]
     }
 }
-
 
 plugins{
     id "java"
     id "maven-publish"
+    id "com.github.johnrengelman.shadow" version "7.1.2"
+    id "net.ltgt.errorprone" version "2.0.2"
+    id "org.checkerframework" version "0.6.7"
+    id "net.kyori.indra.publishing" version "2.0.6"
+    id "net.kyori.indra.git" version "2.0.6"
 }
 
-
 group property("props.project-group")
-version metadata.version
+version metadata.version + (indraGit.headTag() == null ? "-SNAPSHOT" : "")
 
 
 repositories{
     mavenCentral()
     maven{ url "https://www.jitpack.io" }
+    maven{ url "https://repo.xpdustry.fr/snapshots" }
+    maven{ url "https://repo.xpdustry.fr/releases" }
 }
 
 dependencies{
-    // Json
-    implementation "com.google.code.gson:gson:2.8.8"
-    testImplementation "com.google.code.gson:gson:2.8.8"
+    // Libs
+    compileOnly "fr.xpdustry:distributor-core:${versions.distributor}"
+    compileOnly "net.mindustry_ddns:file-store:${versions.store}"
 
     // Mindustry
-    compileOnly "com.github.Anuken.Arc:arc-core:$mindustryVersion"
-    compileOnly "com.github.Anuken.Mindustry:core:$mindustryVersion"
+    compileOnly "com.github.Anuken.Arc:arc-core:${versions.arc}"
+    compileOnly "com.github.Anuken.Arc:backend-headless:${versions.arc}"
+    compileOnly "com.github.Anuken.Mindustry:core:${versions.mindustry}"
+    compileOnly "com.github.Anuken.Mindustry:server:${versions.mindustry}"
 
     // Unit Testing
-    testImplementation "com.github.Anuken.Arc:arc-core:$mindustryVersion"
-    testImplementation "com.github.Anuken.Mindustry:core:$mindustryVersion"
-    testImplementation "org.junit.jupiter:junit-jupiter-params:5.8.1"
-    testImplementation "org.junit.jupiter:junit-jupiter-api:5.8.1"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.8.1"
+    testImplementation "com.github.Anuken.Arc:arc-core:${versions.arc}"
+    testImplementation "com.github.Anuken.Arc:backend-headless:${versions.arc}"
+    testImplementation "com.github.Anuken.Mindustry:core:${versions.mindustry}"
+    testImplementation "com.github.Anuken.Mindustry:server:${versions.mindustry}"
+
+    testImplementation "org.junit.jupiter:junit-jupiter-params:${versions.junit}"
+    testImplementation "org.junit.jupiter:junit-jupiter-api:${versions.junit}"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${versions.junit}"
+
+    // Annotations
+    checkerFramework "org.checkerframework:checker-qual:3.21.1"
+    annotationProcessor "com.uber.nullaway:nullaway:0.9.4"
+    errorprone "com.google.errorprone:error_prone_core:2.11.0"
+    errorproneJavac "com.google.errorprone:javac:9+181-r4173-1"
 }
 
 
 java{
     withSourcesJar()
+    withJavadocJar()
 }
 
-compileJava{
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
-    options.encoding = StandardCharsets.UTF_8
+javadoc{
+    options.addStringOption('Xdoclint:none', '-quiet')
 }
 
 test{
     useJUnitPlatform()
 }
 
-compileTestJava{
-    options.encoding = StandardCharsets.UTF_8
-}
-
-
-jar{
-    archiveBaseName = project.property("props.project-name")
-
-    // The following line is required
-    from configurations.runtimeClasspath.collect{
-        it.isDirectory() ? it : zipTree(it)
-    }
-
+shadowJar{
     from "$rootDir/plugin.json"
 }
 
+build{
+    dependsOn shadowJar
+}
 
-task moveJar{
-    dependsOn jar
 
+tasks.withType(JavaCompile).configureEach {
+    sourceCompatibility = JavaVersion.VERSION_16
+    targetCompatibility = JavaVersion.VERSION_16
+    options.encoding = StandardCharsets.UTF_8
+
+    options.errorprone.with{
+        disableWarningsInGeneratedCode = true
+        disable "MissingSummary"
+        if(!name.containsIgnoreCase("test")){
+            check("NullAway", CheckSeverity.ERROR)
+            option("NullAway:AnnotatedPackages", "fr.xpdustry.template")
+        }
+    }
+}
+
+// Disables the signing task, until I figure this shit out...
+tasks.signMavenPublication.enabled(false)
+
+task moveJar(dependsOn: shadowJar){
     doLast{
         // Deletes all the jar files that begins with the base artifact name
         delete file("$serverDirectoryPath/config/mods").listFiles({
-            it.isFile() && it.name.endsWith(".jar") && it.name.startsWith((String) jar.archiveBaseName.get())
+            it.isFile() && it.name.endsWith(".jar") && it.name.startsWith((String) shadowJar.archiveBaseName.get())
         } as FileFilter)
 
         copy{
-            from jar.archiveFile.get()
+            from shadowJar.archiveFile.get()
             into file("$serverDirectoryPath/config/mods")
         }
     }
 }
 
-task runServer(type: JavaExec){
-    workingDir = serverDirectoryPath
-    classpath = files("$serverDirectoryPath/server.jar")
-    mainClass = "mindustry.server.ServerLauncher"
-    standardInput = System.in
-    args = ["host Veins pvp"]
-}
-
-task deployJar{
-    dependsOn moveJar
-    dependsOn runServer
-}
-
-// Makes sure the task are only available if the props.mindustry-server-directory is set correctly
-for(Task serverTask : [moveJar, runServer, deployJar]){
-    serverTask.configure{
-        onlyIf{ file(serverDirectoryPath).exists() }
+task runServer{
+    doLast{
+        javaexec{
+            workingDir = serverDirectoryPath
+            classpath = files("$serverDirectoryPath/server.jar")
+            mainClass = "mindustry.server.ServerLauncher"
+            standardInput = System.in
+        }
     }
+}
+
+// Makes sure these tasks doesn't run without a server directory
+[moveJar, runServer].forEach {
+    it.onlyIf { serverDirectoryPath != null && file(serverDirectoryPath).exists() }
 }
 
 // Required if you want to use the Release GitHub action
 task getArtifactPath{
-    doLast{ println jar.archiveFile.get().toString() }
+    doLast{ println shadowJar.archiveFile.get().toString() }
+}
+
+task createRelease(dependsOn: requireClean){
+    doLast{
+        // Checks if a signing key is present
+        def signing = new ByteArrayOutputStream().withStream{ out ->
+            exec{
+                commandLine "git"
+                args "config", "--global", "user.signingkey"
+                standardOutput out
+            }.with{it.exitValue == 0 && !out.toString().isBlank() }
+        }
+
+        exec{
+            commandLine "git"
+            def list = ["tag", "v$metadata.version", "-F", "./CHANGELOG.md", "-a"]
+            if(signing) list.add("-s")
+            args list
+        }
+
+        exec{
+            commandLine "git"
+            args "push", "origin", "--tags"
+        }
+    }
+}
+
+// Avoid publishing shadow artifacts to maven repo
+// > https://github.com/johnrengelman/shadow/issues/651
+components.withType(AdhocComponentWithVariants).forEach { c ->
+    c.withVariantsFromConfiguration(configurations.shadowRuntimeElements) { skip() }
 }
 
 
-publishing{
-    publications{
-        maven(MavenPublication){
-            from components.java
+indra{
+    publishReleasesTo("xpdustry", "https://repo.xpdustry.fr/releases")
+    publishSnapshotsTo("xpdustry", "https://repo.xpdustry.fr/snapshots")
 
-            pom{
-                name = metadata.displayName
-                artifactId = metadata.name
-                description = metadata.description
-                url = "https://github.com/$metadata.repo"
+    mitLicense()
 
-                licenses{
-                    license{
-                        name = "MIT License as Publication"
-                        url = "https://www.opensource.org/licenses/mit-license.php"
-                    }
-                }
+    def repo = (metadata.repo as String).split("/")
+    github(repo[0], repo[1]){
+        ci(true)
+        issues(true)
+    }
 
-                developers{
-                    developer{
-                        id = metadata.author
-                    }
+    configurePublications{
+        from components.java
+
+        pom{
+            developers{
+                developer{
+                    id = metadata.author
                 }
             }
         }
     }
 }
+
+/*
+checkerFramework{
+    checkers = [
+            "org.checkerframework.common.value.ValueChecker",
+            "org.checkerframework.checker.index.IndexChecker"
+    ]
+}
+ */

@@ -1,9 +1,7 @@
 package fr.xpdustry.domination;
 
 import arc.*;
-import arc.files.*;
 import arc.struct.*;
-import arc.struct.ObjectMap.*;
 import arc.util.*;
 
 import mindustry.*;
@@ -11,222 +9,209 @@ import mindustry.game.*;
 import mindustry.game.EventType.*;
 import mindustry.game.Teams.*;
 import mindustry.gen.*;
-import mindustry.mod.*;
+import mindustry.graphics.*;
+import mindustry.net.*;
 import mindustry.world.blocks.storage.CoreBlock.*;
 
+import fr.xpdustry.distributor.command.*;
+import fr.xpdustry.distributor.plugin.*;
+import fr.xpdustry.distributor.string.*;
 import fr.xpdustry.domination.Zone.*;
 
+import cloud.commandframework.arguments.standard.*;
+import cloud.commandframework.arguments.standard.StringArgument.*;
+import cloud.commandframework.types.tuples.*;
 import com.google.gson.*;
-import com.google.gson.reflect.*;
+import net.mindustry_ddns.store.*;
+import org.checkerframework.checker.nullness.qual.*;
 
 import java.util.*;
 
 
-@SuppressWarnings("unused")
-public class DominationPlugin extends Plugin{
-    private static boolean showdown = false;
-    private static final Interval timers = new Interval(3);
-    private static final ObjectSet<Playerc> editors = new ObjectSet<>();
-    private static final OrderedMap<Team, Float> leaderboard = new OrderedMap<>();
+public class DominationPlugin extends AbstractPlugin{
+    private static final String DOMINATION_ACTIVE_KEY = "xpdustry:domination";
 
-    private static final Gson gson;
-    private static final TreeMap<String, DominationMap> dominationMaps = new TreeMap<>();
-    private static final Fi configFile = new Fi(Core.files.external("domination-config.json").absolutePath());
+    private static final Gson gson = new GsonBuilder()
+        .setPrettyPrinting()
+        .registerTypeAdapter(Zone.class, new ZoneAdapter())
+        .create();
+
+    private static final FileStore<DominationMapConfig> store =
+        new JsonFileStore<>("./unknown.json", DominationMapConfig.class, DominationMapConfig::new, gson);
+
+    private static final ObjectSet<Player> editors = new ObjectSet<>();
+    private static final ObjectFloatMap<Team> leaderboard = new ObjectFloatMap<>();
+    private static final Map<Zone, WorldLabel> labels = new HashMap<>();
+
+    private static final Interval timers = new Interval(2);
+    private static boolean showdown = false;
 
     private static final int
-        LOGIC_TIMER = 0,
-        COUNTDOWN_TIMER = 1,
-        GRAPHICS_TIMER = 2;
+        UPDATE_TIMER = 0,
+        COUNTDOWN_TIMER = 1;
 
-    static{
-        gson = new GsonBuilder()
-        .setPrettyPrinting()
-        .registerTypeAdapter(Zone.class, new ZoneAdapter().nullSafe())
-        .create();
+    public static DominationMapConfig config(){
+        return store.get();
     }
 
-    @Override
-    public void init(){
-        loadDominationMaps();
+    @Override public void init(){
+        Events.on(PlayerLeave.class, e -> editors.remove(e.player));
 
-        Events.run(PlayEvent.class, () -> {
-            if(isActive()) Vars.state.rules.modeName = "[red]Domination";
+        Events.on(PlayEvent.class, e -> {
+            final var file = getDirectory().child("maps").child(Vars.state.map.name() + ".json");
+            store.setFile(file.path());
+            store.load();
+
+            if(isActive()){
+                showdown = false;
+                timers.reset(COUNTDOWN_TIMER, 0);
+                labels.clear();
+                config().forEach(zone -> labels.put(zone, createLabel(zone)));
+            }
         });
 
-        Events.run(WorldLoadEvent.class, DominationPlugin::resetGameCountdown);
+        Events.on(TapEvent.class, e -> {
+            if(editors.contains(e.player)){
+                final var zone = new Zone(e.tile.x, e.tile.y);
 
-        // Main
-        Events.run(Trigger.update, () -> {
-            if(isActive()){
-                if(timers.get(LOGIC_TIMER, getCurrentMap().getUpdateTicks())){
-                    getCurrentMap().update();
-                    // Updates the leaderboard [team -> percent_captured]
-                    leaderboard.clear(Vars.state.teams.getActive().size + 1);
-                    getCurrentMap().forEach(z -> leaderboard.put(z.getTeam(), leaderboard.get(z.getTeam(), 0F) + z.getPercent()));
-
-                    if(getCurrentMap().hasImmortalCore()){
-                        Vars.state.teams.getActive().each(t -> t.cores.each(c -> {
-                            if(c.health() < c.maxHealth()) c.heal();
-                        }));
-                    }
+                if(config().hasZone(zone)){
+                    config().removeZone(zone);
+                    if(isActive()) labels.remove(zone).remove();
+                }else{
+                    config().addZone(zone);
+                    if(isActive()) labels.put(zone, createLabel(zone));
                 }
 
-                if(timers.get(COUNTDOWN_TIMER, (showdown ? getCurrentMap().getShowdownDuration() : getCurrentMap().getGameDuration()) * Time.toMinutes)){
-                    List<Team> winners = getWinners();
-
-                    switch(winners.size()){
-                        case 0: triggerShowdown(Vars.state.teams.getActive().map(d -> d.team).list()); break;
-                        case 1: Events.fire(new GameOverEvent(winners.get(0))); break;
-                        default: triggerShowdown(winners);
-                    }
-                }
+                store.save();
             }
+        });
 
-            if(timers.get(GRAPHICS_TIMER, Time.toSeconds / 6)){
+        Events.run(Trigger.update, () -> {
+            if(Vars.state.isPlaying() && timers.get(UPDATE_TIMER, Time.toSeconds / 6)){
+                editors.each(p -> {
+                    config().drawZoneCenters(p.con());
+                    if(!isActive()) config().drawZoneCircles(p.con());
+                });
+
                 if(isActive()){
+                    config().forEach(z -> z.update(config()));
+                    leaderboard.clear();
+                    config().forEach(z -> leaderboard.increment(z.getTeam(), 0F, z.getPercent()));
+
+                    // Graphics
+                    config().drawZoneCircles();
+                    labels.forEach((z, l) -> l.text(Strings.format("[#@]@%", z.getTeam().color, z.getPercent())));
+
                     // HUD text
-                    StringBuilder builder = new StringBuilder(100);
+                    final var builder = new StringBuilder(100);
+                    final var gameDuration = showdown ? config().getShowdownDuration() : config().getGameDuration();
 
-                    getCurrentMap().drawZoneCircles();
-                    getCurrentMap().drawZoneTexts(1F / 6);
-
-                    // Time remaining
                     builder.append(showdown ? "[red]" : "");
-                    builder.append(Strings.format("Time remaining > @", Strings.formatMillis(getRemainingTime())));
+                    final var remainingTime = Math.max((long)((gameDuration - timers.getTime(COUNTDOWN_TIMER)) / Time.toSeconds * 1000L), 0L);
+                    builder.append("Time remaining > ").append(Strings.formatMillis(remainingTime));
                     builder.append(showdown ? "[]" : "");
 
                     // Leaderboard
-                    leaderboard.each((team, percent) -> {
-                        String percentString = Strings.fixed(percent / getCurrentMap().getZoneNumber(), 2);
-                        builder.append(Strings.format("\n[#@]@[] > @%", team.color, team == Team.derelict ? "Unclaimed" : Strings.capitalize(team.name), percentString));
-                    });
+                    final var sorted = new Seq<Pair<Team, Float>>();
+                    leaderboard.forEach(e -> sorted.add(Pair.of(e.key, e.value)));
+                    sorted.sort(Comparator.comparingDouble(Pair::getSecond));
+                    sorted.each(e -> builder
+                        .append("\n[#").append(e.getFirst().color).append(']')
+                        .append(e.getFirst() == Team.derelict ? "Unclaimed" : Strings.capitalize(e.getFirst().name))
+                        .append("[] > ").append(Strings.fixed(e.getSecond() / leaderboard.values().toArray().sum(), 2)).append('%')
+                    );
 
                     Call.setHudText(builder.toString());
-                }
 
-                // Rendering for editors
-                editors.each(p -> {
-                    if(Vars.state.isPlaying()){
-                        getCurrentMap().drawZoneCenters(p.con());
-                        if(!isActive()) getCurrentMap().drawZoneCircles(p.con());
+                    if(timers.get(COUNTDOWN_TIMER, gameDuration)){
+                        final var winners = getWinners();
+
+                        switch(winners.size()){
+                            case 0 -> triggerShowdown(Vars.state.teams.getActive().map(d -> d.team).list());
+                            case 1 -> Events.fire(new GameOverEvent(winners.get(0)));
+                            default -> triggerShowdown(winners);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    @Override public void registerClientCommands(@NonNull ArcCommandManager manager){
+        manager.command(manager.commandBuilder("domination").literal("edit")
+            .meta(ArcMeta.PLUGIN, asLoadedMod().name)
+            .meta(ArcMeta.DESCRIPTION, "Enable/Disable domination edit mode.")
+            .permission(ArcPermission.ADMIN)
+            .handler(ctx -> {
+                if(editors.add(ctx.getSender().asPlayer())){
+                    ctx.getSender().send("You enabled the editor mode of domination.");
+                }else{
+                    editors.remove(ctx.getSender().asPlayer());
+                    ctx.getSender().send("You disabled the editor mode of domination.");
+                }
+            })
+        );
+    }
+
+    @Override public void registerSharedCommands(@NonNull ArcCommandManager manager){
+        manager.command(manager.commandBuilder("domination").literal("start")
+            .meta(ArcMeta.PLUGIN, asLoadedMod().name)
+            .meta(ArcMeta.DESCRIPTION, "Start a domination game.")
+            .permission(ArcPermission.ADMIN)
+            .argument(StringArgument.of("map", StringMode.GREEDY))
+            .handler(ctx -> {
+                Core.app.post(() -> {
+                    final var map = Vars.maps.all().find(m -> Strings.stripColors(m.name().replace('_', ' ')).equalsIgnoreCase(Strings.stripColors(ctx.get("map")).replace('_', ' ')));
+                    final var hotLoading = Vars.state.isPlaying();
+                    final var reloader = new WorldReloader();
+
+                    if(map == null){
+                        ctx.getSender().send(MessageIntent.ERROR, "Failed to load '@' map.", ctx.<String>get("map"));
+                        return;
+                    }
+
+                    if(hotLoading) reloader.begin();
+
+                    Vars.world.loadMap(map);
+                    Vars.state.rules = map.applyRules(Gamemode.pvp);
+                    Vars.state.rules.modeName = "[red]Domination";
+                    Vars.state.rules.tags.put(DOMINATION_ACTIVE_KEY, "true");
+
+                    Vars.logic.play();
+                    if(hotLoading){
+                        reloader.end();
+                    }else{
+                        Vars.netServer.openServer();
                     }
                 });
-            }
-        });
-
-        // Reset the zones to their original states and save the settings
-        Events.run(GameOverEvent.class, () -> {
-            getCurrentMap().forEach(Zone::reset);
-            showdown = false;
-            saveDominationMaps();
-        });
-
-        Events.on(PlayerLeave.class, event -> {
-            if(editors.contains(event.player)){
-                editors.remove(event.player);
-            }
-        });
-
-        Events.on(TapEvent.class, event -> {
-            if(editors.contains(event.player)){
-                Zone zone = getCurrentMap().getZone(event.tile.x, event.tile.y);
-                if(zone == null){
-                    getCurrentMap().addZone(new Zone(event.tile.x, event.tile.y));
-                }else{
-                    getCurrentMap().removeZone(zone);
-                }
-            }
-        });
-    }
-
-    @Override
-    public void registerServerCommands(CommandHandler handler){
-        handler.register("domination-config", "<save/load>", "Settings for the Domination plugin...", args -> {
-            switch(args[0].toLowerCase()){
-                case "save": saveDominationMaps(); break;
-                case "load": loadDominationMaps(); break;
-                default: Log.info("The option '@' is invalid.", args[0].toLowerCase());
-            }
-        });
-    }
-
-    @Override
-    public void registerClientCommands(CommandHandler handler){
-        handler.<Playerc>register("domination-edit", "<on/off>", "edit the zones.", (args, player) -> {
-            if(!player.admin()){
-                player.sendMessage("[red]You need to be a chosen one to use this command.");
-                return;
-            }
-
-            switch(args[0].toLowerCase()){
-                case "on":
-                    editors.add(player);
-                    player.sendMessage("You enabled editor mode, now every click will create/delete a Zone.");
-                    break;
-
-                case "off":
-                    editors.remove(player);
-                    player.sendMessage("You disabled editor mode, how unfortunate...");
-                    break;
-
-                default: player.sendMessage(Strings.format("'@' is not a valid option.", args[0]));
-            }
-        });
-    }
-
-    public static void loadDominationMaps(){
-        if(configFile.exists()){
-            dominationMaps.putAll(gson.fromJson(configFile.reader(), new TypeToken<TreeMap<String, DominationMap>>(){}.getType()));
-        }else{
-            configFile.writeString(gson.toJson(dominationMaps));
-        }
-
-        Log.info("Domination maps have been loaded.");
-    }
-
-    public static void saveDominationMaps(){
-        configFile.writeString(gson.toJson(dominationMaps));
-        Log.info("Domination maps have been saved.");
-    }
-
-    public static void resetGameCountdown(){
-        timers.reset(COUNTDOWN_TIMER, 0);
+            })
+        );
     }
 
     public static void triggerShowdown(List<Team> teams){
         showdown = true;
-        resetGameCountdown();
         Call.warningToast((char)9888, "[red]SHOWDOWN ![]");
 
-        for(TeamData data : Vars.state.teams.getActive()){
-            if(!teams.contains(data.team)){
-                data.cores.each(CoreBuild::kill);
-                Groups.player.each(p -> {
-                    if(p.team() == data.team){
-                        p.team(Team.derelict);
-                        p.unit().kill();
-                    }
-                });
+        Vars.state.teams.getActive().forEach(data -> {
+            if(teams.contains(data.team)) return;
 
-                Call.sendMessage(Strings.format("Team [#@]@[] has been reduced to ashes...", data.team.color, data.team.name));
-            }
-        }
-    }
+            data.cores.each(CoreBuild::kill);
+            Groups.player.each(p -> {
+                if(p.team() == data.team){
+                    p.team(Team.derelict);
+                    p.unit().kill();
+                }
+            });
 
-    @Nullable
-    public static DominationMap getMap(String name){
-        return dominationMaps.get(name);
-    }
-
-    public static DominationMap getCurrentMap(){
-        return dominationMaps.computeIfAbsent(Vars.state.map.name(), k -> new DominationMap());
+            Call.sendMessage(Strings.format("Team [#@]@[] has been reduced to ashes...", data.team.color, data.team.name));
+        });
     }
 
     public static List<Team> getWinners(){
-        float maxPercent = 0F;
-        List<Team> winners = new ArrayList<>();
+        var maxPercent = 0F;
+        final var winners = new ArrayList<Team>();
 
-        for(Entry<Team, Float> entry : leaderboard.entries()){
+        for(final var entry : leaderboard.entries()){
             if(entry.key == Team.derelict) continue;
 
             if(entry.value > maxPercent){
@@ -241,13 +226,18 @@ public class DominationPlugin extends Plugin{
         return winners;
     }
 
-    /** Returns the remaining time in milliseconds */
-    public static long getRemainingTime(){
-        float remainingTicks = ((showdown ? getCurrentMap().getShowdownDuration() : getCurrentMap().getGameDuration()) * Time.toMinutes) - timers.getTime(COUNTDOWN_TIMER);
-        return ((long)(remainingTicks / Time.toSeconds)) * 1000L;
+    public static boolean isActive(){
+        return Vars.state.isPlaying() && Vars.state.rules.tags.getBool(DOMINATION_ACTIVE_KEY) && !Vars.state.gameOver;
     }
 
-    public static boolean isActive(){
-        return Vars.state.rules.pvp && Vars.state.isPlaying() && !Vars.state.gameOver;
+    private static WorldLabel createLabel(final @NonNull Zone zone){
+        final var label = WorldLabel.create();
+        label.set(zone);
+        label.z(Layer.flyingUnit);
+        label.flags((byte)(WorldLabel.flagOutline | WorldLabel.flagBackground));
+        label.fontSize(2F);
+        label.text("???%");
+        label.add();
+        return label;
     }
 }

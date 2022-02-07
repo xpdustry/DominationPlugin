@@ -1,0 +1,1 @@
+- Migrated plugin to distributor.

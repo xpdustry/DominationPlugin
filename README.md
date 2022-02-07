@@ -1,28 +1,41 @@
 # TemplatePlugin
 
 [![Jitpack latest version](https://jitpack.io/v/fr.xpdustry/TemplatePlugin.svg)](https://jitpack.io/#fr.xpdustry/TemplatePlugin)
-[![Build status](https://github.com/Xpdustry/TemplatePlugin/actions/workflows/build.yml/badge.svg?branch=master&event=push)](https://github.com/Xpdustry/TemplatePlugin/actions/workflows/build.yml)
-[![Mindustry 5.0 | 6.0 | 7.0 ](https://img.shields.io/badge/Mindustry-5.0%20%7C%206.0%20%7C%207.0-ffd37f)](https://github.com/Anuken/Mindustry/releases)
+[![Build status](https://github.com/Xpdustry/TemplatePlugin/actions/workflows/commit.yml/badge.svg?branch=master&event=push)](https://github.com/Xpdustry/TemplatePlugin/actions/workflows/commit.yml)
+[![Mindustry 6.0 | 7.0 ](https://img.shields.io/badge/Mindustry-6.0%20%7C%207.0-ffd37f)](https://github.com/Anuken/Mindustry/releases)
+[![Xpdustry latest](https://repo.xpdustry.fr/api/badge/latest/snapshots/fr/xpdustry/template-plugin?color=00FFFF&name=TemplatePlugin&prefix=v)](https://github.com/Xpdustry/TemplatePlugin/releases)
 
 ## Description
 
-Template stolen from **Anuken/ExamplePlugin** lol...
+**Xpdustry variation for publishing packages to our repo.**
 
 This template features some cool stuff such as:
+
 - [Jitpack](https://jitpack.io/) support.
+
 - Gradle tasks for testing:
-  - `gradlew moveJar` Move the output jar to your server mod directory.
-  - `gradlew runServer` Start the server in a new cmd.
-  - `gradlew deployJar` Executes `moveJar` and `runServer`.
+    - `./gradlew moveJar`: Move the output jar to your server mod directory.
+    - `./gradlew runServer`: Start the server in a new cmd.
+
 - GitHub action for easier release and Jitpack usage:
-   - You just have to run the `Release` workflow manually,
-     it will automatically take the plugin version in your plugin.json file and upload the jar.
+    - To create a new release, edit `CHANGELOG.md` and then run `./gradlew createRelease`, it will automatically create a release tag and push it to trigger the release workflow.
 
-## Tips and nice things to know
+## Building
 
-- When you use this template, make sure to edit `plugin.json` and `gradle.properties`.
-  
-- The plugin compiles to java 8 for maximum compatibility,
-  but nothing keeps you to change the compiler target or source to a higher jdk.
+- `./gradlew jar` for a simple jar that contains only the plugin.
+- `./gradlew shadowJar` for a fatJar that contains the plugin and its dependencies (use this for your server).
 
-Thank you for using this template !
+# Nice tips
+
+- When using this template, don't forget to change `plugin.json` and `gradle.properties`.
+
+- For Linux/macOS users, don't forget to execute `chmod +x ./gradlew` to make it executable.
+    - For Windows users, you'll need to do:
+      ```batch
+      # https://stackoverflow.com/a/54048315/15861283
+      git update-index --chmod=+x gradlew
+      git add .
+      git commit -m "Changing permission of gradlew"
+      git push
+      ```
+      This will make `gradlew` executable for the Linux/macOS users AND for the GitHub workflows. (Trust me, I lost too much time on this shit)
