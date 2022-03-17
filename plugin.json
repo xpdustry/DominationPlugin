@@ -4,7 +4,7 @@
   "author": "Phinner",
   "description": "Capture the zones to win!",
   "version": "2.1.0",
-  "minGameVersion": "v135",
+  "minGameVersion": "v126.2",
   "hidden": true,
   "java": true,
   "main": "fr.xpdustry.domination.DominationPlugin",

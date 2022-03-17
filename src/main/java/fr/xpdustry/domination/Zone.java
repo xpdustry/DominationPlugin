@@ -20,24 +20,24 @@ public final class Zone implements Position {
   private transient Team team = Team.derelict;
   private transient float percent = 100F;
 
-  public Zone(int x, int y) {
+  public Zone(final int x, final int y) {
     this.x = x;
     this.y = y;
   }
 
-  public void update(@NonNull DominationMapConfig map) {
+  public void update(final @NonNull DominationMapConfig map) {
     // Reset the team if the team got beaten
     if (!team.active()) team = Team.derelict;
 
     // Count the number of players in the zone, per team
     ObjectIntMap<Team> players = new ObjectIntMap<>();
     Groups.player.each(p -> {
-      if (p.within(this, map.getZoneRadius())) players.increment(p.team());
+      if (p.within(this, map.getZoneRadius() * Vars.tilesize)) players.increment(p.team());
     });
 
     // Search for the team with the most players
-    var maxPlayers = 0;
     var winner = Team.derelict;
+    var maxPlayers = 0;
 
     for (final var entry : players) {
       if (entry.value > maxPlayers) {
@@ -92,7 +92,7 @@ public final class Zone implements Position {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(final @Nullable Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     final var other = (Zone) o;
@@ -117,12 +117,12 @@ public final class Zone implements Position {
         return null;
       }
 
-      String text = reader.nextString();
-      String[] coords = text.split(",", 2);
+      final var text = reader.nextString();
+      final var coords = text.split(",", 2);
 
-        if (coords.length != 2) {
-            throw new IOException(text + " is not a coordinate.");
-        }
+      if (coords.length != 2) {
+        throw new IOException(text + " is not a coordinate.");
+      }
 
       for (int i = 0; i < coords.length; i++) {
         coords[i] = coords[i].trim();

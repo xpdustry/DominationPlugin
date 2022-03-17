@@ -12,32 +12,17 @@ import mindustry.entities.*;
 import mindustry.gen.*;
 import mindustry.net.*;
 import org.checkerframework.checker.nullness.qual.*;
+import org.jetbrains.annotations.*;
 
 public final class DominationMapConfig implements Iterable<Zone> {
 
   private static final Seq<Effect> EFFECTS = Seq.with(Fx.mine, Fx.mineBig, Fx.mineHuge);
 
-  private final int zoneRadius;
-  private final float captureRate;
-  private final float gameDuration;
-  private final float showdownDuration;
+  private int zoneRadius = 5;
+  private float captureRate = 5F;
+  private float gameDuration = 30F;
+  private float showdownDuration = 5F;
   private final Set<Zone> zones = new HashSet<>();
-
-  public DominationMapConfig(
-    final int zoneRadius,
-    final float captureRate,
-    final float gameDuration,
-    final float showdownDuration
-  ) {
-    this.zoneRadius = zoneRadius;
-    this.captureRate = captureRate;
-    this.gameDuration = gameDuration;
-    this.showdownDuration = showdownDuration;
-  }
-
-  public DominationMapConfig() {
-    this(5, 5F, 30F, 5F);
-  }
 
   public void addZone(final @NonNull Zone zone) {
     zones.add(zone);
@@ -62,7 +47,7 @@ public final class DominationMapConfig implements Iterable<Zone> {
   }
 
   @Override
-  public Spliterator<Zone> spliterator() {
+  public @NotNull Spliterator<Zone> spliterator() {
     return zones.spliterator();
   }
 
@@ -86,24 +71,40 @@ public final class DominationMapConfig implements Iterable<Zone> {
     });
   }
 
-  public Set<Zone> getZones() {
+  public @NotNull Collection<Zone> getZones() {
     return Collections.unmodifiableSet(zones);
   }
 
-  public float getZoneRadius() {
-    return zoneRadius * Vars.tilesize;
+  public int getZoneRadius() {
+    return zoneRadius;
+  }
+
+  public void setZoneRadius(final int zoneRadius) {
+    this.zoneRadius = zoneRadius;
   }
 
   public float getCaptureRate() {
     return captureRate;
   }
 
+  public void setCaptureRate(final float captureRate) {
+    this.captureRate = captureRate;
+  }
+
   public float getGameDuration() {
-    return gameDuration * Time.toMinutes;
+    return gameDuration;
+  }
+
+  public void setGameDuration(final float gameDuration) {
+    this.gameDuration = gameDuration;
   }
 
   public float getShowdownDuration() {
-    return showdownDuration * Time.toMinutes;
+    return showdownDuration;
+  }
+
+  public void setShowdownDuration(final float showdownDuration) {
+    this.showdownDuration = showdownDuration;
   }
 
   private float[] createZoneCircle() {

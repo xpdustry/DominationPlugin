@@ -1,41 +1,52 @@
 # TemplatePlugin
 
-[![Jitpack latest version](https://jitpack.io/v/fr.xpdustry/TemplatePlugin.svg)](https://jitpack.io/#fr.xpdustry/TemplatePlugin)
 [![Build status](https://github.com/Xpdustry/TemplatePlugin/actions/workflows/commit.yml/badge.svg?branch=master&event=push)](https://github.com/Xpdustry/TemplatePlugin/actions/workflows/commit.yml)
 [![Mindustry 6.0 | 7.0 ](https://img.shields.io/badge/Mindustry-6.0%20%7C%207.0-ffd37f)](https://github.com/Anuken/Mindustry/releases)
 [![Xpdustry latest](https://repo.xpdustry.fr/api/badge/latest/snapshots/fr/xpdustry/template-plugin?color=00FFFF&name=TemplatePlugin&prefix=v)](https://github.com/Xpdustry/TemplatePlugin/releases)
 
 ## Description
 
-**Xpdustry variation for publishing packages to our repo.**
+This plugin is a special game mode based "capture the zone" like games like TF2 or Robocraft.
 
-This template features some cool stuff such as:
+The rules are really simple, be the team with the most captured zones or the highest percent of captured zones to win.
 
-- [Jitpack](https://jitpack.io/) support.
+To capture a zone, just stand in the radius. Be sure to enable the effects to see it...
 
-- Gradle tasks for testing:
-    - `./gradlew moveJar`: Move the output jar to your server mod directory.
-    - `./gradlew runServer`: Start the server in a new cmd.
+If more than 2 teams are even when the time is up, the showdown is triggered. Which means the other teams are killed.
 
-- GitHub action for easier release and Jitpack usage:
-    - To create a new release, edit `CHANGELOG.md` and then run `./gradlew createRelease`, it will automatically create a release tag and push it to trigger the release workflow.
+Here is the command tree :
+
+- domination
+
+  - start `<map>` : Start a new game of Domination on the specified map, can work during an already running game.
+
+  - edit : Enable/Disable the edit mode, where each click can make a zone appear or disappear, works even in a non-domination game.
+
+  - settings : The settings for the current map, works even in a non-domination game.
+
+    - zone-radius `[zone-radius]` : Edit/See the zone radius. The default value is `5` blocks.
+
+    - capture-rate `[capture-rate]` : Edit/See the capture rate, the number of percent captured per second. The default value is `5.0` percent.
+
+    - game-duration `[game-duration]` : Edit/See the game duration. The default value is `30.0` minutes.
+
+    - showdown-duration `[showdown-duration]` : Edit/See the showdown duration. The default value is `5.0` minutes.
+
 
 ## Building
 
 - `./gradlew jar` for a simple jar that contains only the plugin.
+
 - `./gradlew shadowJar` for a fatJar that contains the plugin and its dependencies (use this for your server).
 
-# Nice tips
+## Testing
 
-- When using this template, don't forget to change `plugin.json` and `gradle.properties`.
+- `./gradlew runMindustryClient`: Run Mindustry in desktop with the plugin.
 
-- For Linux/macOS users, don't forget to execute `chmod +x ./gradlew` to make it executable.
-    - For Windows users, you'll need to do:
-      ```batch
-      # https://stackoverflow.com/a/54048315/15861283
-      git update-index --chmod=+x gradlew
-      git add .
-      git commit -m "Changing permission of gradlew"
-      git push
-      ```
-      This will make `gradlew` executable for the Linux/macOS users AND for the GitHub workflows. (Trust me, I lost too much time on this shit)
+- `./gradlew runMindustryServer`: Run Mindustry in a server with the plugin.
+
+## Running
+
+[distributor-core](https://github.com/Xpdustry/Distributor) is required as a dependency.
+
+If you run on V6 or V7 up to v135, you will need [mod-loader](https://github.com/Xpdustry/ModLoaderPlugin).

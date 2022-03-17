@@ -21,12 +21,13 @@ group = property("props.project-group").toString()
 version = metadata.version + if (indraGit.headTag() == null) "-SNAPSHOT" else ""
 
 toxopid {
+    val compileVersion = "v135" // Need v135 to access WorldLabel
     modTarget.set(ModTarget.HEADLESS)
-    arcCompileVersion.set(metadata.minGameVersion)
-    mindustryCompileVersion.set(metadata.minGameVersion)
+    arcCompileVersion.set(compileVersion)
+    mindustryCompileVersion.set(compileVersion)
 
     mindustryRepository.set(MindustryRepository.BE)
-    mindustryRuntimeVersion.set("22343")
+    mindustryRuntimeVersion.set("22349")
 
     modDependencies.set(listOf(
         ModDependency("Xpdustry/Distributor", "v2.6.1", "distributor-core.jar")

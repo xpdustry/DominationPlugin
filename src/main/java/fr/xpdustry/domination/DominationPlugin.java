@@ -3,25 +3,29 @@ package fr.xpdustry.domination;
 import arc.*;
 import arc.struct.*;
 import arc.util.*;
+import cloud.commandframework.arguments.*;
 import cloud.commandframework.arguments.standard.*;
 import cloud.commandframework.arguments.standard.StringArgument.*;
 import cloud.commandframework.types.tuples.*;
 import com.google.gson.*;
 import fr.xpdustry.distributor.*;
 import fr.xpdustry.distributor.command.*;
+import fr.xpdustry.distributor.command.sender.*;
 import fr.xpdustry.distributor.message.*;
 import fr.xpdustry.distributor.plugin.*;
 import fr.xpdustry.domination.Zone.*;
+import fr.xpdustry.domination.graphics.*;
 import java.util.*;
+import java.util.function.*;
 import mindustry.*;
 import mindustry.game.EventType.*;
 import mindustry.game.*;
 import mindustry.gen.*;
-import mindustry.graphics.*;
 import mindustry.net.*;
 import mindustry.world.blocks.storage.CoreBlock.*;
 import net.mindustry_ddns.store.*;
 import org.checkerframework.checker.nullness.qual.*;
+import org.jetbrains.annotations.*;
 
 @SuppressWarnings("unused")
 public class DominationPlugin extends AbstractPlugin {
@@ -38,7 +42,7 @@ public class DominationPlugin extends AbstractPlugin {
 
   private static final ObjectSet<Player> editors = new ObjectSet<>();
   private static final ObjectFloatMap<Team> leaderboard = new ObjectFloatMap<>();
-  private static final Map<Zone, WorldLabel> labels = new HashMap<>();
+  private static final Map<Zone, MapLabel> labels = new HashMap<>();
 
   private static final Interval timers = new Interval(2);
   private static final int
@@ -47,11 +51,11 @@ public class DominationPlugin extends AbstractPlugin {
 
   private static boolean showdown = false;
 
-  public static DominationMapConfig config() {
+  public static DominationMapConfig getConf() {
     return store.get();
   }
 
-  public static void triggerShowdown(List<Team> teams) {
+  public static void triggerShowdown(final @NotNull List<Team> teams) {
     showdown = true;
     Call.warningToast((char) 9888, "[red]SHOWDOWN ![]");
 
@@ -93,13 +97,10 @@ public class DominationPlugin extends AbstractPlugin {
     return Vars.state.isPlaying() && Vars.state.rules.tags.getBool(DOMINATION_ACTIVE_KEY) && !Vars.state.gameOver;
   }
 
-  private static WorldLabel createLabel(final @NonNull Zone zone) {
-    final var label = WorldLabel.create();
-    label.set(zone);
-    label.z(Layer.flyingUnit);
-    label.flags((byte) (WorldLabel.flagOutline | WorldLabel.flagBackground));
-    label.fontSize(2F);
-    label.text("???%");
+  private static MapLabel createLabel(final @NonNull Zone zone) {
+    final var label = MapLabel.create();
+    label.setPosition(zone);
+    label.setText("???%");
     label.add();
     return label;
   }
@@ -109,7 +110,7 @@ public class DominationPlugin extends AbstractPlugin {
     Events.on(PlayerLeave.class, e -> editors.remove(e.player));
 
     Events.on(PlayEvent.class, e -> {
-      final var file = getDirectory().child("maps").child(Vars.state.map.name() + ".json");
+      final var file = getDirectory().child(Vars.state.map.name() + ".json");
       store.setFile(file.path());
       store.load();
 
@@ -117,7 +118,7 @@ public class DominationPlugin extends AbstractPlugin {
         showdown = false;
         timers.reset(COUNTDOWN_TIMER, 0);
         labels.clear();
-        config().forEach(zone -> labels.put(zone, createLabel(zone)));
+        getConf().forEach(zone -> labels.put(zone, createLabel(zone)));
       }
     });
 
@@ -125,11 +126,11 @@ public class DominationPlugin extends AbstractPlugin {
       if (editors.contains(e.player)) {
         final var zone = new Zone(e.tile.x, e.tile.y);
 
-        if (config().hasZone(zone)) {
-          config().removeZone(zone);
+        if (getConf().hasZone(zone)) {
+          getConf().removeZone(zone);
           if (isActive()) labels.remove(zone).remove();
         } else {
-          config().addZone(zone);
+          getConf().addZone(zone);
           if (isActive()) labels.put(zone, createLabel(zone));
         }
 
@@ -140,22 +141,22 @@ public class DominationPlugin extends AbstractPlugin {
     Events.run(Trigger.update, () -> {
       if (Vars.state.isPlaying() && timers.get(UPDATE_TIMER, Time.toSeconds / 6)) {
         editors.each(p -> {
-          config().drawZoneCenters(p.con());
-          if (!isActive()) config().drawZoneCircles(p.con());
+          getConf().drawZoneCenters(p.con());
+          if (!isActive()) getConf().drawZoneCircles(p.con());
         });
 
         if (isActive()) {
-          config().forEach(z -> z.update(config()));
+          getConf().forEach(z -> z.update(getConf()));
           leaderboard.clear();
-          config().forEach(z -> leaderboard.increment(z.getTeam(), 0F, z.getPercent()));
+          getConf().forEach(z -> leaderboard.increment(z.getTeam(), 0F, z.getPercent()));
 
           // Graphics
-          config().drawZoneCircles();
-          labels.forEach((z, l) -> l.text(Strings.format("[#@]@%", z.getTeam().color, z.getPercent())));
+          getConf().drawZoneCircles();
+          labels.forEach((z, l) -> l.setText(Strings.format("[#@]@%", z.getTeam().color, z.getPercent())));
 
           // HUD text
           final var builder = new StringBuilder(100);
-          final var gameDuration = showdown ? config().getShowdownDuration() : config().getGameDuration();
+          final var gameDuration = (showdown ? getConf().getShowdownDuration() : getConf().getGameDuration()) * Time.toMinutes;
 
           builder.append(showdown ? "[red]" : "");
           final var remainingTime = Math.max((long) ((gameDuration - timers.getTime(COUNTDOWN_TIMER)) / Time.toSeconds * 1000L), 0L);
@@ -169,7 +170,7 @@ public class DominationPlugin extends AbstractPlugin {
           sorted.each(e -> builder
             .append("\n[#").append(e.getFirst().color).append(']')
             .append(e.getFirst() == Team.derelict ? "Unclaimed" : Strings.capitalize(e.getFirst().name))
-            .append("[] > ").append(Strings.fixed(e.getSecond() / leaderboard.values().toArray().sum(), 2)).append('%')
+            .append("[] > ").append(Strings.fixed(e.getSecond() / getConf().getZones().size(), 2)).append('%')
           );
 
           Call.setHudText(builder.toString());
@@ -189,24 +190,48 @@ public class DominationPlugin extends AbstractPlugin {
   }
 
   @Override
-  public void registerClientCommands(@NonNull ArcCommandManager manager) {
+  public void registerClientCommands(final @NonNull ArcCommandManager manager) {
     manager.command(manager.commandBuilder("domination").literal("edit")
       .meta(ArcMeta.PLUGIN, asLoadedMod().name)
       .meta(ArcMeta.DESCRIPTION, "Enable/Disable domination edit mode.")
       .permission(ArcPermission.ADMIN)
       .handler(ctx -> {
-        if (editors.add(ctx.getSender().getPlayer())) {
-          ctx.getSender().sendMessage("You enabled the editor mode of domination.");
-        } else {
-          editors.remove(ctx.getSender().getPlayer());
-          ctx.getSender().sendMessage("You disabled the editor mode of domination.");
-        }
+        final var player = ctx.getSender().getPlayer();
+        if (!editors.add(player)) editors.remove(player);
+        final var formatter = Distributor.getClientMessageFormatter();
+        ctx.getSender().sendMessage(
+          formatter.format(MessageIntent.SUCCESS, "You @ the editor mode of domination.", editors.contains(player) ? "enabled" : "disabled"
+        ));
       })
+    );
+
+    createSettingsCommand(
+      IntegerArgument.<ArcCommandSender>newBuilder("zone-radius").withMin(1).asOptional().build(),
+      () -> getConf().getZoneRadius(),
+      v -> getConf().setZoneRadius(v)
+    );
+
+    createSettingsCommand(
+      FloatArgument.<ArcCommandSender>newBuilder("capture-rate").withMin(1).withMax(100).asOptional().build(),
+      () -> getConf().getCaptureRate(),
+      v -> getConf().setCaptureRate(v)
+    );
+
+    createSettingsCommand(
+      FloatArgument.<ArcCommandSender>newBuilder("game-duration").withMin(1).asOptional().build(),
+      () -> getConf().getGameDuration(),
+      v -> getConf().setGameDuration(v)
+    );
+
+    createSettingsCommand(
+      FloatArgument.<ArcCommandSender>newBuilder("showdown-duration").withMin(1).asOptional().build(),
+      () -> getConf().getShowdownDuration(),
+      v -> getConf().setShowdownDuration(v)
     );
   }
 
   @Override
-  public void registerSharedCommands(@NonNull ArcCommandManager manager) {
+  public void registerSharedCommands(final @NonNull ArcCommandManager manager) {
     manager.command(manager.commandBuilder("domination").literal("start")
       .meta(ArcMeta.PLUGIN, asLoadedMod().name)
       .meta(ArcMeta.DESCRIPTION, "Start a domination game.")
@@ -237,6 +262,31 @@ public class DominationPlugin extends AbstractPlugin {
           } else {
             Vars.netServer.openServer();
           }
+        });
+      })
+    );
+  }
+
+  private <T> void createSettingsCommand(
+    final @NotNull CommandArgument<ArcCommandSender, T> argument,
+    final @NotNull Supplier<T> getter,
+    final @NotNull Consumer<T> setter
+  ) {
+    final var manager = Distributor.getClientCommandManager();
+    manager.command(manager.commandBuilder("domination").literal("settings").literal(argument.getName())
+      .meta(ArcMeta.PLUGIN, asLoadedMod().name)
+      .meta(ArcMeta.DESCRIPTION, "Change the " + argument.getName() + " map setting.")
+      .permission(ArcPermission.ADMIN)
+      .argument(argument)
+      .handler(ctx -> {
+        final var formatter = Distributor.getClientMessageFormatter();
+
+        ctx.<T>getOptional(argument.getName()).ifPresentOrElse(value -> {
+          setter.accept(value);
+          store.save();
+          ctx.getSender().sendMessage(formatter.format(MessageIntent.SUCCESS, "The @ has been set to @.", argument.getName(), value));
+        }, () -> {
+          ctx.getSender().sendMessage(formatter.format(MessageIntent.INFO, "The current @ is @.", argument.getName(), getter.get()));
         });
       })
     );
