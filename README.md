@@ -10,28 +10,29 @@ This plugin is a special game mode based "capture the zone" like games like TF2 
 
 The rules are really simple, be the team with the most captured zones or the highest percent of captured zones to win.
 
-To capture a zone, just stand in the radius. Be sure to enable the effects to see it...
+To capture a zone, just stand within its radius. Be sure to enable the effects to see it...
 
-If more than 2 teams are even when the time is up, the showdown is triggered. Which means the other teams are killed.
+If more than 2 teams are even when the time is up, the showdown is triggered, which means the other teams are killed.
 
 Here is the command tree :
 
-- domination
+- `domination` :
 
-  - start `<map>` : Start a new game of Domination on the specified map, can work during an already running game.
+  - `start <map>` : Start a new game of Domination on the specified map, can work during an already running game and in the console. 
 
-  - edit : Enable/Disable the edit mode, where each click can make a zone appear or disappear, works even in a non-domination game.
+  - `edit` : Enable/Disable the edit mode, where each click can make a zone appear or disappear, works even in a non-domination game.
 
-  - settings : The settings for the current map, works even in a non-domination game.
+  - `settings` : The settings for the current map, works even in a non-domination game.
 
-    - zone-radius `[zone-radius]` : Edit/See the zone radius. The default value is `5` blocks.
+    - `zone-radius [zone-radius]` : Edit/See the zone radius. The default value is `5` blocks.
 
-    - capture-rate `[capture-rate]` : Edit/See the capture rate, the number of percent captured per second. The default value is `5.0` percent.
+    - `capture-rate [capture-rate]` : Edit/See the capture rate, the number of percent captured per second. The default value is `5.0` percent.
 
-    - game-duration `[game-duration]` : Edit/See the game duration. The default value is `30.0` minutes.
+    - `game-duration [game-duration]` : Edit/See the game duration. The default value is `30.0` minutes.
 
-    - showdown-duration `[showdown-duration]` : Edit/See the showdown duration. The default value is `5.0` minutes.
+    - `showdown-duration [showdown-duration]` : Edit/See the showdown duration. The default value is `5.0` minutes.
 
+The map settings are saved in the json format in the created `./distributor/plugins/xpdustry-domination-plugin` directory.
 
 ## Building
 
