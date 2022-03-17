@@ -1,7 +1,7 @@
 import fr.xpdustry.toxopid.extension.MindustryRepository
 import fr.xpdustry.toxopid.extension.ModDependency
-import fr.xpdustry.toxopid.util.ModMetadata
 import fr.xpdustry.toxopid.extension.ModTarget
+import fr.xpdustry.toxopid.util.ModMetadata
 import net.ltgt.gradle.errorprone.CheckSeverity
 import net.ltgt.gradle.errorprone.errorprone
 import java.io.ByteArrayOutputStream
