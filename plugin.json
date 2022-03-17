@@ -3,11 +3,13 @@
   "displayName": "Xpdustry DominationPlugin",
   "author": "Phinner",
   "description": "Capture the zones to win!",
-  "version": "2.0.0",
-  "minGameVersion": "135",
+  "version": "2.1.0",
+  "minGameVersion": "v135",
   "hidden": true,
   "java": true,
   "main": "fr.xpdustry.domination.DominationPlugin",
   "repo": "Xpdustry/DominationPlugin",
-  "dependencies": ["xpdustry-distributor-core"]
+  "dependencies": [
+    "xpdustry-distributor-core"
+  ]
 }

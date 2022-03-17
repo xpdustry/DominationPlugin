@@ -13,7 +13,7 @@ import org.checkerframework.checker.nullness.qual.*;
 
 import java.io.*;
 import java.util.*;
-
+import org.jetbrains.annotations.Nullable;
 
 public final class Zone implements Position{
     private final int x;
@@ -106,7 +106,7 @@ public final class Zone implements Position{
             }
         }
 
-        @Override public Zone read(JsonReader reader) throws IOException{
+        @Override public @Nullable Zone read(JsonReader reader) throws IOException{
             if(reader.peek() == JsonToken.NULL){
                 reader.nextNull();
                 return null;

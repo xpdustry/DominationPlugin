@@ -4,6 +4,8 @@ import arc.*;
 import arc.struct.*;
 import arc.util.*;
 
+import fr.xpdustry.distributor.*;
+import fr.xpdustry.distributor.message.*;
 import mindustry.*;
 import mindustry.game.*;
 import mindustry.game.EventType.*;
@@ -15,7 +17,6 @@ import mindustry.world.blocks.storage.CoreBlock.*;
 
 import fr.xpdustry.distributor.command.*;
 import fr.xpdustry.distributor.plugin.*;
-import fr.xpdustry.distributor.string.*;
 import fr.xpdustry.domination.Zone.*;
 
 import cloud.commandframework.arguments.standard.*;
@@ -143,11 +144,11 @@ public class DominationPlugin extends AbstractPlugin{
             .meta(ArcMeta.DESCRIPTION, "Enable/Disable domination edit mode.")
             .permission(ArcPermission.ADMIN)
             .handler(ctx -> {
-                if(editors.add(ctx.getSender().asPlayer())){
-                    ctx.getSender().send("You enabled the editor mode of domination.");
+                if(editors.add(ctx.getSender().getPlayer())){
+                    ctx.getSender().sendMessage("You enabled the editor mode of domination.");
                 }else{
-                    editors.remove(ctx.getSender().asPlayer());
-                    ctx.getSender().send("You disabled the editor mode of domination.");
+                    editors.remove(ctx.getSender().getPlayer());
+                    ctx.getSender().sendMessage("You disabled the editor mode of domination.");
                 }
             })
         );
@@ -166,7 +167,8 @@ public class DominationPlugin extends AbstractPlugin{
                     final var reloader = new WorldReloader();
 
                     if(map == null){
-                        ctx.getSender().send(MessageIntent.ERROR, "Failed to load '@' map.", ctx.<String>get("map"));
+                        final var formatter = Distributor.getMessageFormatter(ctx.getSender());
+                        ctx.getSender().sendMessage(formatter.format(MessageIntent.ERROR, "Failed to load '@' map.", ctx.<String>get("map")));
                         return;
                     }
 

@@ -1,4 +1,0 @@
-def props = new Properties()
-props.load(file("./gradle.properties").newReader())
-// Grab "props.project-name" from the property file
-rootProject.name = props["props.project-name"]
