@@ -113,7 +113,7 @@ indra {
     publishReleasesTo("xpdustry", "https://repo.xpdustry.fr/releases")
     publishSnapshotsTo("xpdustry", "https://repo.xpdustry.fr/snapshots")
 
-    mitLicense()
+    gpl3OnlyLicense()
 
     if (metadata.repo != null) {
         val repo = metadata.repo!!.split("/")
