@@ -1,9 +1,6 @@
-It's time people, TO MAKE A RELEASE !!!
+# Changelog
 
-- Updated to Distributor v2.6.1
+All notable changes to this project will be documented in this file.
 
-- Added commands.
-
-- Improved documentation.
-
-- Much more !!!
+The format is based on [Keep a Changelog](http://keepachangelog.com/),
+and this project adheres to [Semantic Versioning](http://semver.org/).

@@ -1,20 +1,37 @@
+/*
+ * DominationPlugin, a "capture the zone" like gamemode plugin.
+ *
+ * Copyright (C) 2022  Xpdustry
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package fr.xpdustry.domination;
 
 import arc.*;
 import arc.struct.*;
 import arc.util.*;
-import cloud.commandframework.arguments.*;
 import cloud.commandframework.arguments.standard.*;
 import cloud.commandframework.arguments.standard.StringArgument.*;
+import cloud.commandframework.meta.*;
 import cloud.commandframework.types.tuples.*;
 import com.google.gson.*;
-import fr.xpdustry.distributor.*;
-import fr.xpdustry.distributor.command.*;
-import fr.xpdustry.distributor.command.sender.*;
-import fr.xpdustry.distributor.message.*;
-import fr.xpdustry.distributor.plugin.*;
+import fr.xpdustry.distributor.api.command.*;
+import fr.xpdustry.distributor.api.command.sender.*;
+import fr.xpdustry.distributor.api.plugin.*;
 import fr.xpdustry.domination.Zone.*;
 import fr.xpdustry.domination.graphics.*;
+import io.leangen.geantyref.*;
 import java.util.*;
 import java.util.function.*;
 import mindustry.*;
@@ -23,12 +40,13 @@ import mindustry.game.*;
 import mindustry.gen.*;
 import mindustry.net.*;
 import mindustry.world.blocks.storage.CoreBlock.*;
-import net.mindustry_ddns.store.*;
+import net.mindustry_ddns.filestore.*;
+import net.mindustry_ddns.filestore.serial.*;
 import org.checkerframework.checker.nullness.qual.*;
 import org.jetbrains.annotations.*;
 
 @SuppressWarnings("unused")
-public class DominationPlugin extends AbstractPlugin {
+public class DominationPlugin extends ExtendedPlugin {
 
   private static final String DOMINATION_ACTIVE_KEY = "xpdustry:domination";
 
@@ -37,25 +55,28 @@ public class DominationPlugin extends AbstractPlugin {
     .registerTypeAdapter(Zone.class, new ZoneAdapter())
     .create();
 
-  private static final FileStore<DominationMapConfig> store =
-    new JsonFileStore<>("./unknown.json", DominationMapConfig.class, DominationMapConfig::new, gson);
-
-  private static final ObjectSet<Player> editors = new ObjectSet<>();
-  private static final ObjectFloatMap<Team> leaderboard = new ObjectFloatMap<>();
-  private static final Map<Zone, MapLabel> labels = new HashMap<>();
-
-  private static final Interval timers = new Interval(2);
   private static final int
     UPDATE_TIMER = 0,
     COUNTDOWN_TIMER = 1;
 
-  private static boolean showdown = false;
+  private final FileStore<DominationMapConfig> store = FileStore.of(
+    "./unknown.json",
+    Serializers.gson(gson),
+    TypeToken.get(DominationMapConfig.class),
+    new DominationMapConfig()
+  );
 
-  public static DominationMapConfig getConf() {
-    return store.get();
-  }
+  private final ObjectSet<Player> editors = new ObjectSet<>();
+  private final ObjectFloatMap<Team> leaderboard = new ObjectFloatMap<>();
+  private final Map<Zone, MapLabel> labels = new HashMap<>();
+  private final Interval timers = new Interval(2);
 
-  public static void triggerShowdown(final @NotNull List<Team> teams) {
+  private final ArcCommandManager<CommandSender> clientCommands = ArcCommandManager.standard(this);
+  private final ArcCommandManager<CommandSender> serverCommands = ArcCommandManager.standard(this);
+
+  private boolean showdown = false;
+
+  public void triggerShowdown(final @NotNull List<Team> teams) {
     showdown = true;
     Call.warningToast((char) 9888, "[red]SHOWDOWN ![]");
 
@@ -74,7 +95,7 @@ public class DominationPlugin extends AbstractPlugin {
     });
   }
 
-  public static List<Team> getWinners() {
+  public List<Team> getWinners() {
     var maxPercent = 0F;
     final var winners = new ArrayList<Team>();
 
@@ -106,19 +127,19 @@ public class DominationPlugin extends AbstractPlugin {
   }
 
   @Override
-  public void init() {
+  public void onInit() {
     Events.on(PlayerLeave.class, e -> editors.remove(e.player));
 
     Events.on(PlayEvent.class, e -> {
-      final var file = getDirectory().child(Vars.state.map.name() + ".json");
-      store.setFile(file.path());
+      final var file = getDirectory().resolve(Vars.state.map.name() + ".json");
+      store.setFile(file.toFile());
       store.load();
 
       if (isActive()) {
         showdown = false;
         timers.reset(COUNTDOWN_TIMER, 0);
         labels.clear();
-        getConf().forEach(zone -> labels.put(zone, createLabel(zone)));
+        store.get().forEach(zone -> labels.put(zone, createLabel(zone)));
       }
     });
 
@@ -126,11 +147,11 @@ public class DominationPlugin extends AbstractPlugin {
       if (editors.contains(e.player)) {
         final var zone = new Zone(e.tile.x, e.tile.y);
 
-        if (getConf().hasZone(zone)) {
-          getConf().removeZone(zone);
+        if (store.get().hasZone(zone)) {
+          store.get().removeZone(zone);
           if (isActive()) labels.remove(zone).remove();
         } else {
-          getConf().addZone(zone);
+          store.get().addZone(zone);
           if (isActive()) labels.put(zone, createLabel(zone));
         }
 
@@ -141,22 +162,22 @@ public class DominationPlugin extends AbstractPlugin {
     Events.run(Trigger.update, () -> {
       if (Vars.state.isPlaying() && timers.get(UPDATE_TIMER, Time.toSeconds / 6)) {
         editors.each(p -> {
-          getConf().drawZoneCenters(p.con());
-          if (!isActive()) getConf().drawZoneCircles(p.con());
+          store.get().drawZoneCenters(p.con());
+          if (!isActive()) store.get().drawZoneCircles(p.con());
         });
 
         if (isActive()) {
-          getConf().forEach(z -> z.update(getConf()));
+          store.get().forEach(z -> z.update(store.get()));
           leaderboard.clear();
-          getConf().forEach(z -> leaderboard.increment(z.getTeam(), 0F, z.getPercent()));
+          store.get().forEach(z -> leaderboard.increment(z.getTeam(), 0F, z.getPercent()));
 
           // Graphics
-          getConf().drawZoneCircles();
+          store.get().drawZoneCircles();
           labels.forEach((z, l) -> l.setText(Strings.format("[#@]@%", z.getTeam().color, z.getPercent())));
 
           // HUD text
           final var builder = new StringBuilder(100);
-          final var gameDuration = (showdown ? getConf().getShowdownDuration() : getConf().getGameDuration()) * Time.toMinutes;
+          final var gameDuration = (showdown ? store.get().getShowdownDuration() : store.get().getGameDuration()) * Time.toMinutes;
 
           builder.append(showdown ? "[red]" : "");
           final var remainingTime = Math.max((long) ((gameDuration - timers.getTime(COUNTDOWN_TIMER)) / Time.toSeconds * 1000L), 0L);
@@ -170,7 +191,7 @@ public class DominationPlugin extends AbstractPlugin {
           sorted.each(e -> builder
             .append("\n[#").append(e.getFirst().color).append(']')
             .append(e.getFirst() == Team.derelict ? "Unclaimed" : Strings.capitalize(e.getFirst().name))
-            .append("[] > ").append(Strings.fixed(e.getSecond() / getConf().getZones().size(), 2)).append('%')
+            .append("[] > ").append(Strings.fixed(e.getSecond() / store.get().getZones().size(), 2)).append('%')
           );
 
           Call.setHudText(builder.toString());
@@ -190,66 +211,49 @@ public class DominationPlugin extends AbstractPlugin {
   }
 
   @Override
-  public void registerClientCommands(final @NonNull ArcCommandManager manager) {
-    manager.command(manager.commandBuilder("domination").literal("edit")
-      .meta(ArcMeta.PLUGIN, asLoadedMod().name)
-      .meta(ArcMeta.DESCRIPTION, "Enable/Disable domination edit mode.")
-      .permission(ArcPermission.ADMIN)
-      .handler(ctx -> {
-        final var player = ctx.getSender().getPlayer();
-        if (!editors.add(player)) editors.remove(player);
-        final var formatter = Distributor.getClientMessageFormatter();
-        ctx.getSender().sendMessage(
-          formatter.format(MessageIntent.SUCCESS, "You @ the editor mode of domination.", editors.contains(player) ? "enabled" : "disabled"
-        ));
-      })
-    );
-
-    createSettingsCommand(
-      IntegerArgument.<ArcCommandSender>newBuilder("zone-radius").withMin(1).asOptional().build(),
-      () -> getConf().getZoneRadius(),
-      v -> getConf().setZoneRadius(v)
-    );
-
-    createSettingsCommand(
-      FloatArgument.<ArcCommandSender>newBuilder("capture-rate").withMin(1).withMax(100).asOptional().build(),
-      () -> getConf().getCaptureRate(),
-      v -> getConf().setCaptureRate(v)
-    );
-
-    createSettingsCommand(
-      FloatArgument.<ArcCommandSender>newBuilder("game-duration").withMin(1).asOptional().build(),
-      () -> getConf().getGameDuration(),
-      v -> getConf().setGameDuration(v)
-    );
-
-    createSettingsCommand(
-      FloatArgument.<ArcCommandSender>newBuilder("showdown-duration").withMin(1).asOptional().build(),
-      () -> getConf().getShowdownDuration(),
-      v -> getConf().setShowdownDuration(v)
-    );
+  public void onServerCommandsRegistration(CommandHandler handler) {
+    serverCommands.initialize(handler);
+    onSharedCommandsRegistration(serverCommands);
   }
 
   @Override
-  public void registerSharedCommands(final @NonNull ArcCommandManager manager) {
+  public void onClientCommandsRegistration(final CommandHandler handler) {
+    clientCommands.initialize(handler);
+    clientCommands.command(clientCommands.commandBuilder("domination").literal("edit")
+      .meta(CommandMeta.DESCRIPTION, "Enable/Disable domination edit mode.")
+      .permission("fr.xpdustry.domination.edit")
+      .handler(ctx -> {
+        final var player = ctx.getSender().getPlayer();
+        if (!editors.add(player)) editors.remove(player);
+        ctx.getSender().sendMessage(
+          Strings.format("You @ the editor mode of domination.", editors.contains(player) ? "enabled" : "disabled")
+        );
+      })
+    );
+    onSharedCommandsRegistration(clientCommands);
+  }
+
+  public void onSharedCommandsRegistration(final @NonNull ArcCommandManager<CommandSender> manager) {
     manager.command(manager.commandBuilder("domination").literal("start")
-      .meta(ArcMeta.PLUGIN, asLoadedMod().name)
-      .meta(ArcMeta.DESCRIPTION, "Start a domination game.")
-      .permission(ArcPermission.ADMIN)
+      .meta(CommandMeta.DESCRIPTION, "Start a domination game.")
+      .permission("fr.xpdustry.domination.start")
       .argument(StringArgument.of("map", StringMode.GREEDY))
       .handler(ctx -> {
         Core.app.post(() -> {
-          final var map = Vars.maps.all().find(m -> Strings.stripColors(m.name().replace('_', ' ')).equalsIgnoreCase(Strings.stripColors(ctx.get("map")).replace('_', ' ')));
+          final var map = Vars.maps.all()
+            .find(m -> Strings.stripColors(m.name().replace('_', ' '))
+              .equalsIgnoreCase(Strings.stripColors(ctx.get("map")).replace('_', ' ')));
           final var hotLoading = Vars.state.isPlaying();
           final var reloader = new WorldReloader();
 
           if (map == null) {
-            final var formatter = Distributor.getMessageFormatter(ctx.getSender());
-            ctx.getSender().sendMessage(formatter.format(MessageIntent.ERROR, "Failed to load '@' map.", ctx.<String>get("map")));
+            ctx.getSender().sendMessage(Strings.format("Failed to load '@' map.", ctx.<String>get("map")));
             return;
           }
 
-          if (hotLoading) reloader.begin();
+          if (hotLoading) {
+            reloader.begin();
+          }
 
           Vars.world.loadMap(map);
           Vars.state.rules = map.applyRules(Gamemode.pvp);
@@ -262,31 +266,6 @@ public class DominationPlugin extends AbstractPlugin {
           } else {
             Vars.netServer.openServer();
           }
-        });
-      })
-    );
-  }
-
-  private <T> void createSettingsCommand(
-    final @NotNull CommandArgument<ArcCommandSender, T> argument,
-    final @NotNull Supplier<T> getter,
-    final @NotNull Consumer<T> setter
-  ) {
-    final var manager = Distributor.getClientCommandManager();
-    manager.command(manager.commandBuilder("domination").literal("settings").literal(argument.getName())
-      .meta(ArcMeta.PLUGIN, asLoadedMod().name)
-      .meta(ArcMeta.DESCRIPTION, "Change the " + argument.getName() + " map setting.")
-      .permission(ArcPermission.ADMIN)
-      .argument(argument)
-      .handler(ctx -> {
-        final var formatter = Distributor.getClientMessageFormatter();
-
-        ctx.<T>getOptional(argument.getName()).ifPresentOrElse(value -> {
-          setter.accept(value);
-          store.save();
-          ctx.getSender().sendMessage(formatter.format(MessageIntent.SUCCESS, "The @ has been set to @.", argument.getName(), value));
-        }, () -> {
-          ctx.getSender().sendMessage(formatter.format(MessageIntent.INFO, "The current @ is @.", argument.getName(), getter.get()));
         });
       })
     );
