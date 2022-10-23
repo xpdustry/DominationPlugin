@@ -32,11 +32,11 @@ toxopid {
 repositories {
     mavenCentral()
     maven("https://maven.xpdustry.fr/releases") {
-        name = "xpdustry-reporitory"
+        name = "xpdustry-repository"
         mavenContent { releasesOnly() }
     }
     maven("https://repo.xpdustry.fr/releases") {
-        name = "xpdustry-reporitory-legacy"
+        name = "xpdustry-repository-legacy"
         mavenContent { releasesOnly() }
     }
     anukenJitpack()
@@ -44,9 +44,7 @@ repositories {
 
 dependencies {
     mindustryDependencies()
-    compileOnly("org.checkerframework:checker-compat-qual:2.5.5")
     compileOnly("fr.xpdustry:distributor-api:3.0.0-rc.1")
-    compileOnly("fr.xpdustry:distributor-core:3.0.0-rc.1") // Don't do that, im a professional :)
     implementation("com.google.code.gson:gson:2.9.1")
     implementation("net.mindustry_ddns:file-store:2.1.0")
 
@@ -55,13 +53,10 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter-api:$junit")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$junit")
 
-    val jetbrains = "23.0.0"
-    compileOnly("org.jetbrains:annotations:$jetbrains")
-    testCompileOnly("org.jetbrains:annotations:$jetbrains")
-
     // Static analysis
     annotationProcessor("com.uber.nullaway:nullaway:0.10.1")
     errorprone("com.google.errorprone:error_prone_core:2.16")
+    compileOnly("org.checkerframework:checker-compat-qual:2.5.5")
 }
 
 tasks.withType(JavaCompile::class.java).configureEach {
