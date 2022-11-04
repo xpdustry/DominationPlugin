@@ -44,8 +44,8 @@ repositories {
 
 dependencies {
     mindustryDependencies()
-    compileOnly("fr.xpdustry:distributor-api:3.0.0-rc.1")
-    implementation("com.google.code.gson:gson:2.9.1")
+    compileOnly("fr.xpdustry:distributor-api:3.0.0-rc.2")
+    implementation("com.google.code.gson:gson:2.10")
     implementation("net.mindustry_ddns:file-store:2.1.0")
 
     val junit = "5.9.0"
@@ -105,7 +105,7 @@ tasks.build.get().dependsOn(tasks.shadowJar)
 
 val distributor = tasks.register<GitHubDownload>("downloadDistributor") {
     artifacts.add(
-        GitHubArtifact.release("Xpdustry", "Distributor", "v3.0.0-rc1", "Distributor.jar")
+        GitHubArtifact.release("Xpdustry", "Distributor", "v3.0.0-rc.2", "Distributor.jar")
     )
 }
 

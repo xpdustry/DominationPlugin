@@ -1,100 +1,94 @@
 package fr.xpdustry.domination;
 
-import arc.*;
 import arc.util.*;
-import cloud.commandframework.arguments.standard.*;
-import cloud.commandframework.arguments.standard.StringArgument.*;
-import cloud.commandframework.meta.*;
 import com.google.gson.*;
 import fr.xpdustry.distributor.api.command.*;
 import fr.xpdustry.distributor.api.command.sender.*;
+import fr.xpdustry.distributor.api.event.*;
 import fr.xpdustry.distributor.api.plugin.*;
+import fr.xpdustry.distributor.api.util.*;
+import fr.xpdustry.domination.Zone.*;
+import fr.xpdustry.domination.commands.*;
+import io.leangen.geantyref.*;
+import java.time.*;
 import java.util.*;
 import mindustry.*;
 import mindustry.game.*;
-import mindustry.gen.*;
-import mindustry.net.*;
+import net.mindustry_ddns.filestore.*;
+import net.mindustry_ddns.filestore.serial.*;
 import org.checkerframework.checker.nullness.qual.*;
 
-public final class DominationPlugin extends ExtendedPlugin {
+public final class DominationPlugin extends ExtendedPlugin implements EventBusListener {
 
-  static final String DOMINATION_ACTIVE_KEY = "xpdustry-domination:active";
+  private static final String DOMINATION_ENABLED_KEY = "xpdustry-domination:enabled";
 
-  private static final Gson gson = new GsonBuilder()
-    .setPrettyPrinting()
-    .registerTypeAdapter(DominationZone.class, new DominationZone.Adapter())
-    .create();
+  // TODO Make the DominationState object itself loadable to allow more options like game duration and stuff...
+  private final FileStore<List<Zone>> loader = FileStore.of(
+    getDirectory().resolve("maps").resolve("unknown.json").toFile(),
+    Serializers.gson(
+      new GsonBuilder()
+        .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_DASHES)
+        .registerTypeAdapter(Zone.class, new Adapter())
+        .registerTypeAdapter(Duration.class, new DurationAdapter())
+        .setPrettyPrinting()
+        .create()
+    ),
+    new TypeToken<>() {},
+    new ArrayList<>()
+  );
 
-  private final Set<Player> editors = new HashSet<>();
   private final ArcCommandManager<CommandSender> clientCommands = ArcCommandManager.standard(this);
   private final ArcCommandManager<CommandSender> serverCommands = ArcCommandManager.standard(this);
 
-  @Override
-  public void onInit() {
-    Core.app.addListener(new DominationLogic(this));
+  private @MonotonicNonNull DominationState state = null;
+
+  @EventHandler(priority = Priority.HIGH)
+  public void onPlayEvent(final EventType.PlayEvent event) {
+    loader.setFile(getDirectory().resolve("maps").resolve(Vars.state.map.name() + ".json").toFile());
+    loader.set(new ArrayList<>());
+    loader.load();
+    state = new DominationState(loader);
   }
 
   @Override
-  public void onServerCommandsRegistration(CommandHandler handler) {
+  public void onServerCommandsRegistration(final CommandHandler handler) {
     serverCommands.initialize(handler);
-    onSharedCommandsRegistration(serverCommands);
+    final var annotations = serverCommands.createAnnotationParser(CommandSender.class);
+    annotations.parse(new StartCommand(this));
   }
 
   @Override
   public void onClientCommandsRegistration(final CommandHandler handler) {
     clientCommands.initialize(handler);
-    onSharedCommandsRegistration(clientCommands);
-    clientCommands.command(clientCommands.commandBuilder("domination").literal("edit")
-      .meta(CommandMeta.DESCRIPTION, "Enable/Disable domination edit mode.")
-      .permission("fr.xpdustry.domination.edit")
-      .handler(ctx -> {
-        final var player = ctx.getSender().getPlayer();
-        if (!editors.add(player)) editors.remove(player);
-        ctx.getSender().sendMessage(
-          Strings.format("You @ the editor mode of domination.", editors.contains(player) ? "enabled" : "disabled")
-        );
-      })
-    );
+    final var annotations = clientCommands.createAnnotationParser(CommandSender.class);
+    annotations.parse(new StartCommand(this));
+    annotations.parse(new EditCommands(this));
   }
 
-  public void onSharedCommandsRegistration(final @NonNull ArcCommandManager<CommandSender> manager) {
-    manager.command(
-      manager
-        .commandBuilder("domination")
-        .literal("start")
-        .meta(CommandMeta.DESCRIPTION, "Start a domination game.")
-        .permission("fr.xpdustry.domination.start")
-        .argument(StringArgument.of("map", StringMode.GREEDY))
-        .handler(ctx -> {
-          Core.app.post(() -> {
-            final var map = Vars.maps.all()
-              .find(m -> Strings.stripColors(m.name().replace('_', ' '))
-                .equalsIgnoreCase(Strings.stripColors(ctx.get("map")).replace('_', ' ')));
-            final var hotLoading = Vars.state.isPlaying();
-            final var reloader = new WorldReloader();
+  @Override
+  public void onLoad() {
+    EventBus.mindustry().register(this);
+    new DominationLogic(this);
+    new DominationRenderer(this);
+  }
 
-            if (map == null) {
-              ctx.getSender().sendMessage(Strings.format("Failed to load '@' map.", ctx.<String>get("map")));
-              return;
-            }
+  public boolean isEnabled() {
+    return Vars.state.rules.tags.getBool(DOMINATION_ENABLED_KEY);
+  }
 
-            if (hotLoading) {
-              reloader.begin();
-            }
+  public void setEnabled(final boolean enabled) {
+    Vars.state.rules.tags.put(DOMINATION_ENABLED_KEY, Boolean.toString(enabled));
+  }
 
-            Vars.world.loadMap(map);
-            Vars.state.rules = map.applyRules(Gamemode.pvp);
-            Vars.state.rules.modeName = "[red]Domination";
-            Vars.state.rules.tags.put(DOMINATION_ACTIVE_KEY, "true");
+  public DominationState getState() {
+    return state;
+  }
 
-            Vars.logic.play();
-            if (hotLoading) {
-              reloader.end();
-            } else {
-              Vars.netServer.openServer();
-            }
-          });
-        })
-      );
+  public ArcCommandManager<CommandSender> getServerCommandManager() {
+    return serverCommands;
+  }
+
+  public ArcCommandManager<CommandSender> getClientCommandManager() {
+    return clientCommands;
   }
 }
