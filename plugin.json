@@ -4,7 +4,7 @@
   "author": "Xpdustry",
   "description": "Capture the zones to win!",
   "version": "3.0.0",
-  "minGameVersion": "138",
+  "minGameVersion": "137",
   "hidden": true,
   "java": true,
   "main": "fr.xpdustry.domination.DominationPlugin",
