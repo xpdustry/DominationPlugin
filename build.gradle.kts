@@ -9,10 +9,10 @@ import net.ltgt.gradle.errorprone.CheckSeverity
 import net.ltgt.gradle.errorprone.errorprone
 
 plugins {
-    id("net.kyori.indra") version "3.0.0"
-    id("net.kyori.indra.publishing") version "3.0.0"
-    id("net.kyori.indra.git") version "3.0.0"
-    id("net.kyori.indra.licenser.spotless") version "3.0.0"
+    id("net.kyori.indra") version "3.0.1"
+    id("net.kyori.indra.publishing") version "3.0.1"
+    id("net.kyori.indra.git") version "3.0.1"
+    id("net.kyori.indra.licenser.spotless") version "3.0.1"
     id("net.ltgt.errorprone") version "2.0.2"
     id("com.github.johnrengelman.shadow") version "7.1.2"
     id("fr.xpdustry.toxopid") version "2.1.1"
@@ -45,6 +45,7 @@ repositories {
 dependencies {
     mindustryDependencies()
     compileOnly("fr.xpdustry:distributor-api:3.0.0-rc.2")
+    annotationProcessor("fr.xpdustry:distributor-api:3.0.0-rc.2")
     implementation("com.google.code.gson:gson:2.10")
     implementation("net.mindustry_ddns:file-store:2.1.0")
 
@@ -54,7 +55,7 @@ dependencies {
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$junit")
 
     // Static analysis
-    annotationProcessor("com.uber.nullaway:nullaway:0.10.1")
+    annotationProcessor("com.uber.nullaway:nullaway:0.10.4")
     errorprone("com.google.errorprone:error_prone_core:2.16")
     compileOnly("org.checkerframework:checker-compat-qual:2.5.5")
 }
@@ -62,15 +63,12 @@ dependencies {
 tasks.withType(JavaCompile::class.java).configureEach {
     options.errorprone {
         disableWarningsInGeneratedCode.set(true)
-        disable("MissingSummary")
+        disable("MissingSummary", "FutureReturnValueIgnored")
         if (!name.contains("test", true)) {
             check("NullAway", CheckSeverity.ERROR)
             option("NullAway:AnnotatedPackages", project.property("props.root-package").toString())
         }
     }
-    // Github + Indra being funny
-    sourceCompatibility = "17"
-    targetCompatibility = "17"
 }
 
 // Required for the GitHub actions

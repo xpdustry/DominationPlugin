@@ -32,12 +32,20 @@ import java.time.*;
 import java.util.*;
 import mindustry.*;
 import mindustry.game.*;
+import mindustry.gen.*;
 import net.mindustry_ddns.filestore.*;
 import net.mindustry_ddns.filestore.serial.*;
 import org.checkerframework.checker.nullness.qual.*;
 
 public final class DominationPlugin extends ExtendedPlugin implements EventBusListener {
 
+  public static final String DOMINATION_RULES = """
+    Welcome to [cyan]Domination PVP[].
+    The rules are simple. [red]Your team must capture all the zones.[]
+    To do so, a team sends their units in a zone until it reaches 100%.
+    You can obtain a list of the zones and their status with the command [orange]/domination zones[].
+    To see this message again, do [orange]/domination rules[].
+    """;
   private static final String DOMINATION_ENABLED_KEY = "xpdustry-domination:enabled";
 
   // TODO Make the DominationState object itself loadable to allow more options like game duration and stuff...
@@ -68,6 +76,13 @@ public final class DominationPlugin extends ExtendedPlugin implements EventBusLi
     state = new DominationState(loader);
   }
 
+  @EventHandler
+  public void onPlayerJoin(final EventType.PlayerJoin event) {
+    if (isEnabled()) {
+      Call.infoMessage(event.player.con(), DOMINATION_RULES);
+    }
+  }
+
   @Override
   public void onServerCommandsRegistration(final CommandHandler handler) {
     serverCommands.initialize(handler);
@@ -81,6 +96,7 @@ public final class DominationPlugin extends ExtendedPlugin implements EventBusLi
     final var annotations = clientCommands.createAnnotationParser(CommandSender.class);
     annotations.parse(new StartCommand(this));
     annotations.parse(new EditCommands(this));
+    annotations.parse(new StandardCommands(this));
   }
 
   @Override

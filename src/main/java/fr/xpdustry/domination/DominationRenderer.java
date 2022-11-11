@@ -65,18 +65,11 @@ public final class DominationRenderer implements Runnable, EventBusListener {
   @EventHandler
   public void onPlayEvent(final EventType.PlayEvent event) {
     labels.clear();
-    if (plugin.isEnabled()) {
-      for (final var zone : plugin.getState().getZones()) {
-        final var label = WorldLabel.create();
-        label.text("???%");
-        label.z(Layer.flyingUnit);
-        label.flags((byte) (WorldLabel.flagOutline | WorldLabel.flagBackground));
-        label.fontSize(2F);
-        label.set(zone);
-        label.add();
-        labels.put(zone, label);
-      }
-    }
+  }
+
+  @EventHandler
+  public void onPlayerQuit(final EventType.PlayerLeave event) {
+    viewers.remove(event.player);
   }
 
   @Override
@@ -106,11 +99,33 @@ public final class DominationRenderer implements Runnable, EventBusListener {
           );
 
         Call.setHudText(builder.toString());
+
+        // Update labels
+        final var zones = new HashSet<>(plugin.getState().getZones());
+        final var entries = labels.entrySet().iterator();
+        while (entries.hasNext()) {
+          final var entry = entries.next();
+          if (!zones.remove(entry.getKey())) {
+            entries.remove();
+            entry.getValue().remove();
+            Call.removeWorldLabel(entry.getValue().id());
+          }
+        }
+        for (final var zone : zones) {
+          final var label = WorldLabel.create();
+          label.text("???%");
+          label.z(Layer.flyingUnit);
+          label.flags((byte) (WorldLabel.flagOutline | WorldLabel.flagBackground));
+          label.fontSize(2F);
+          label.set(zone.getX(), zone.getY());
+          label.add();
+          labels.put(zone, label);
+        }
       } else {
         for (final var viewer : viewers) {
           drawZoneCircles(viewer);
           for (final var zone : this.plugin.getState().getZones()) {
-            Call.label(viewer.con(), "[#" + zone.getTeam().color + "]" + Iconc.box, Time.toSeconds / 6, zone.getX(), zone.getY());
+            Call.label(viewer.con(), "[#" + zone.getTeam().color + "]" + Iconc.star, 1F / 6, zone.getX(), zone.getY());
           }
         }
       }

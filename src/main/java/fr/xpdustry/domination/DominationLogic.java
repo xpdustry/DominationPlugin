@@ -41,38 +41,44 @@ public final class DominationLogic implements Runnable {
     if (Vars.state.isPlaying() && plugin.isEnabled()) {
       for (final var zone : plugin.getState().getZones()) {
         // Reset the team if the team got beaten
-        if (!zone.getTeam().active()) {
+        if (zone.getTeam() != Team.derelict && !zone.getTeam().active()) {
           zone.setTeam(Team.derelict);
+          zone.setCapture(100);
         }
 
-        // Count the number of players in the zone, per team
-        final var players = new ObjectIntMap<Team>();
-        Groups.player.each(
-          player -> player.within(zone, zone.getRadius()),
-          player -> players.increment(player.team())
+        // Count the number of units in the zone, per team
+        final var units = new ObjectIntMap<Team>();
+        Groups.unit.each(
+          unit -> unit.within(zone.getX(), zone.getY(), zone.getRadius()),
+          unit -> units.increment(unit.team())
         );
 
-        // Search for the team with the most players
+        // Search for the team with the most units
         var winner = Team.derelict;
-        int maxPlayers = 0;
+        int max = 0;
 
-        for (final var entry : players) {
-          if (entry.value > maxPlayers) {
+        for (final var entry : units) {
+          if (entry.value > max) {
             winner = entry.key;
-            maxPlayers = entry.value;
-          } else if (entry.value == maxPlayers) {
-            // If 2 teams have the same number of players, don't update so set back to derelict.
+            max = entry.value;
+          } else if (entry.value == max) {
+            // If 2 teams have the same number of units, don't update so set back to derelict.
             winner = Team.derelict;
           }
         }
 
         // Updates the zone values
         if (winner != Team.derelict) {
+          final int rate = 1;
           if (zone.getTeam() == winner) {
-            zone.setCapture(Math.min(zone.getCapture() + 5, 100));
+            zone.setCapture(Math.min(zone.getCapture() + rate, 100));
           } else {
-            zone.setCapture(Math.max(zone.getCapture() - 5, 0));
+            zone.setCapture(Math.max(zone.getCapture() - rate, 0));
             if (zone.getCapture() == 0) {
+              Call.warningToast(
+                Iconc.warning,
+                String.format("[#%s]%s[] captured a zone at (%d, %d).", winner.color, winner.name, zone.getX() / 8, zone.getY() / 8)
+              );
               zone.setTeam(winner);
             }
           }

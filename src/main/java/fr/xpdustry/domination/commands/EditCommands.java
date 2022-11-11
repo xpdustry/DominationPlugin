@@ -22,6 +22,7 @@ import cloud.commandframework.annotations.*;
 import cloud.commandframework.annotations.specifier.*;
 import fr.xpdustry.distributor.api.command.sender.*;
 import fr.xpdustry.domination.*;
+import mindustry.*;
 
 public final class EditCommands {
 
@@ -37,20 +38,23 @@ public final class EditCommands {
     final CommandSender sender,
     final @Argument("x") @Range(min = "0") int x,
     final @Argument("y") @Range(min = "0") int y,
-    final @Argument("radius") @Range(min = "1") int radius
+    final @Argument("radius") @Range(min = "1") int radius,
+    final @Flag(value = "precise", aliases = "p") boolean precise
   ) {
+    final int tx = precise ? x : x * Vars.tilesize;
+    final int ty = precise ? y : y * Vars.tilesize;
     domination.getState().getZones()
       .stream()
-      .filter(zone -> zone.getX() == x && zone.getY() == y)
+      .filter(zone -> zone.getX() == tx && zone.getY() == ty)
       .findFirst()
       .ifPresentOrElse(
         zone -> {
           zone.setRadius(radius);
           domination.getState().save();
-          sender.sendMessage("The radius of the zone (%d, %d) has been set to %d".formatted(x, y, radius));
+          sender.sendMessage("The radius of the zone (%d, %d) has been set to %d".formatted(tx, ty, radius));
         },
         () -> {
-          sender.sendMessage("There is no zone at (%d, %d).".formatted(x, y));
+          sender.sendMessage("There is no zone at (%d, %d).".formatted(tx, ty));
         }
     );
   }
@@ -60,14 +64,17 @@ public final class EditCommands {
   public void addZone(
     final CommandSender sender,
     final @Argument("x") @Range(min = "0") int x,
-    final @Argument("y") @Range(min = "0") int y
+    final @Argument("y") @Range(min = "0") int y,
+    final @Flag(value = "precise", aliases = "p") boolean precise
   ) {
-    if (domination.getState().getZones().stream().anyMatch(zone -> zone.getX() == x && zone.getY() == y)) {
+    final int tx = precise ? x : x * Vars.tilesize;
+    final int ty = precise ? y : y * Vars.tilesize;
+    if (domination.getState().getZones().stream().anyMatch(zone -> zone.getX() == tx && zone.getY() == ty)) {
       sender.sendMessage("A zone is already present at this location.");
     } else {
-      domination.getState().getZones().add(new Zone(x, y, 5));
+      domination.getState().getZones().add(new Zone(tx, ty, 5));
       domination.getState().save();
-      sender.sendMessage("A zone has been added at (%d, %d).".formatted(x, y));
+      sender.sendMessage("A zone has been added at (%d, %d).".formatted(tx, ty));
     }
   }
 
@@ -76,11 +83,14 @@ public final class EditCommands {
   public void removeZone(
     final CommandSender sender,
     final @Argument("x") @Range(min = "0") int x,
-    final @Argument("y") @Range(min = "0") int y
+    final @Argument("y") @Range(min = "0") int y,
+    final @Flag(value = "precise", aliases = "p") boolean precise
   ) {
-    if (domination.getState().getZones().removeIf(zone -> zone.getX() == x && zone.getY() == y)) {
+    final int tx = precise ? x : x * Vars.tilesize;
+    final int ty = precise ? y : y * Vars.tilesize;
+    if (domination.getState().getZones().removeIf(zone -> zone.getX() == tx && zone.getY() == ty)) {
       domination.getState().save();
-      sender.sendMessage("The zone at (%d, %d) has been removed.".formatted(x, y));
+      sender.sendMessage("The zone at (%d, %d) has been removed.".formatted(tx, ty));
     } else {
       sender.sendMessage("No zones are present at this location.");
     }

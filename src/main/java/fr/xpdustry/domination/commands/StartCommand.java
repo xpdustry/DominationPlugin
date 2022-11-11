@@ -28,7 +28,7 @@ import mindustry.*;
 import mindustry.game.*;
 import mindustry.net.*;
 
-public class StartCommand {
+public final class StartCommand {
 
   private final DominationPlugin domination;
 

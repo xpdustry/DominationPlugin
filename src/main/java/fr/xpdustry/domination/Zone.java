@@ -23,12 +23,11 @@ import com.google.gson.stream.*;
 import java.io.*;
 import java.util.*;
 
-import arc.math.geom.Position;
 import mindustry.*;
 import mindustry.game.*;
 import org.checkerframework.checker.nullness.qual.*;
 
-public final class Zone implements Cloneable, Position {
+public final class Zone {
 
   private int x;
   private int y;
@@ -47,8 +46,7 @@ public final class Zone implements Cloneable, Position {
     this(x, y, 5 * Vars.tilesize);
   }
 
-  @Override
-  public float getX() {
+  public int getX() {
     return x;
   }
 
@@ -56,8 +54,7 @@ public final class Zone implements Cloneable, Position {
     this.x = x;
   }
 
-  @Override
-  public float getY() {
+  public int getY() {
     return y;
   }
 
@@ -90,15 +87,6 @@ public final class Zone implements Cloneable, Position {
   }
 
   @Override
-  public Zone clone() {
-    try {
-      return (Zone) super.clone();
-    } catch (final CloneNotSupportedException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  @Override
   public int hashCode() {
     return Objects.hash(x, y);
   }
@@ -120,7 +108,7 @@ public final class Zone implements Cloneable, Position {
       if (value == null) {
         writer.nullValue();
       } else {
-        writer.value("" + value.x + "," + value.y + "," + value.radius);
+        writer.value(value.x + ", " + value.y + ", " + value.radius);
       }
     }
 

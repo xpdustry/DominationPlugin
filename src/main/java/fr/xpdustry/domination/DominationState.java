@@ -26,6 +26,7 @@ import net.mindustry_ddns.filestore.*;
 
 public final class DominationState {
 
+  // TODO Separate zone data and zone state with a map
   private static final Duration ONE_HOUR = Duration.ofHours(1L);
   private final Store<List<Zone>> zones;
   private final Instant start = Instant.now(Clock.systemUTC());
