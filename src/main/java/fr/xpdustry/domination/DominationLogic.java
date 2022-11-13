@@ -49,8 +49,12 @@ public final class DominationLogic implements Runnable {
         // Count the number of units in the zone, per team
         final var units = new ObjectIntMap<Team>();
         Groups.unit.each(
-          unit -> unit.within(zone.getX(), zone.getY(), zone.getRadius()),
-          unit -> units.increment(unit.team())
+                unit -> {
+                  if (!unit.spawnedByCore) {
+                    unit.within(zone.getX(), zone.getY(), zone.getRadius());
+                    units.increment(unit.team());
+                  }
+                }
         );
 
         // Search for the team with the most units
