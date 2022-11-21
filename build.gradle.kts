@@ -32,7 +32,7 @@ toxopid {
 repositories {
     mavenCentral()
     maven("https://maven.xpdustry.fr/releases") {
-        name = "xpdustry-repository"
+        name = "xpdustry-repository-releases"
         mavenContent { releasesOnly() }
     }
     maven("https://repo.xpdustry.fr/releases") {
@@ -44,8 +44,8 @@ repositories {
 
 dependencies {
     mindustryDependencies()
-    compileOnly("fr.xpdustry:distributor-api:3.0.0-rc.2")
-    annotationProcessor("fr.xpdustry:distributor-api:3.0.0-rc.2")
+    compileOnly("fr.xpdustry:distributor-api:3.0.0-rc.3")
+    annotationProcessor("fr.xpdustry:distributor-api:3.0.0-rc.3")
     implementation("com.google.code.gson:gson:2.10")
     implementation("net.mindustry_ddns:file-store:2.1.0")
 
@@ -57,7 +57,6 @@ dependencies {
     // Static analysis
     annotationProcessor("com.uber.nullaway:nullaway:0.10.4")
     errorprone("com.google.errorprone:error_prone_core:2.16")
-    compileOnly("org.checkerframework:checker-compat-qual:2.5.5")
 }
 
 tasks.withType(JavaCompile::class.java).configureEach {
@@ -99,11 +98,13 @@ tasks.shadowJar {
     }
 }
 
-tasks.build.get().dependsOn(tasks.shadowJar)
+tasks.build {
+    dependsOn(tasks.shadowJar)
+}
 
 val distributor = tasks.register<GitHubDownload>("downloadDistributor") {
     artifacts.add(
-        GitHubArtifact.release("Xpdustry", "Distributor", "v3.0.0-rc.2", "Distributor.jar")
+        GitHubArtifact.release("Xpdustry", "Distributor", "v3.0.0-rc.3", "Distributor.jar")
     )
 }
 
@@ -150,7 +151,8 @@ indra {
 
             developers {
                 developer {
-                    id.set(metadata.author)
+                    id.set("Phinner")
+                    timezone.set("Europe/Brussels")
                 }
             }
         }

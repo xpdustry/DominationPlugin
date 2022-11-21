@@ -22,7 +22,6 @@ import arc.util.*;
 import com.google.gson.*;
 import fr.xpdustry.distributor.api.command.*;
 import fr.xpdustry.distributor.api.command.sender.*;
-import fr.xpdustry.distributor.api.event.*;
 import fr.xpdustry.distributor.api.plugin.*;
 import fr.xpdustry.distributor.api.util.*;
 import fr.xpdustry.domination.Zone.*;
@@ -37,7 +36,7 @@ import net.mindustry_ddns.filestore.*;
 import net.mindustry_ddns.filestore.serial.*;
 import org.checkerframework.checker.nullness.qual.*;
 
-public final class DominationPlugin extends ExtendedPlugin implements EventBusListener {
+public final class DominationPlugin extends ExtendedPlugin {
 
   public static final String DOMINATION_RULES = """
     Welcome to [cyan]Domination PVP[].
@@ -68,19 +67,23 @@ public final class DominationPlugin extends ExtendedPlugin implements EventBusLi
 
   private @MonotonicNonNull DominationState state = null;
 
-  @EventHandler(priority = Priority.HIGH)
-  public void onPlayEvent(final EventType.PlayEvent event) {
-    loader.setFile(getDirectory().resolve("maps").resolve(Vars.state.map.name() + ".json").toFile());
-    loader.set(new ArrayList<>());
-    loader.load();
-    state = new DominationState(loader);
-  }
+  @Override
+  public void onInit() {
+    MoreEvents.subscribe(EventType.PlayEvent.class, event -> {
+      loader.setFile(getDirectory().resolve("maps").resolve(Vars.state.map.name() + ".json").toFile());
+      loader.set(new ArrayList<>());
+      loader.load();
+      state = new DominationState(loader);
+    });
 
-  @EventHandler
-  public void onPlayerJoin(final EventType.PlayerJoin event) {
-    if (isEnabled()) {
-      Call.infoMessage(event.player.con(), DOMINATION_RULES);
-    }
+    MoreEvents.subscribe(EventType.PlayerJoin.class, event -> {
+      if (isEnabled()) {
+        Call.infoMessage(event.player.con(), DOMINATION_RULES);
+      }
+    });
+
+    addListener(new DominationLogic(this));
+    addListener(new DominationRenderer(this));
   }
 
   @Override
@@ -97,13 +100,6 @@ public final class DominationPlugin extends ExtendedPlugin implements EventBusLi
     annotations.parse(new StartCommand(this));
     annotations.parse(new EditCommands(this));
     annotations.parse(new StandardCommands(this));
-  }
-
-  @Override
-  public void onLoad() {
-    EventBus.mindustry().register(this);
-    new DominationLogic(this);
-    new DominationRenderer(this);
   }
 
   public boolean isEnabled() {

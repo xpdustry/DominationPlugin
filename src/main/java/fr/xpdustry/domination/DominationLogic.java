@@ -19,26 +19,27 @@
 package fr.xpdustry.domination;
 
 import arc.struct.*;
-import fr.xpdustry.distributor.api.*;
-import fr.xpdustry.distributor.api.event.*;
+import arc.util.*;
+import fr.xpdustry.distributor.api.plugin.*;
+import fr.xpdustry.distributor.api.util.*;
 import java.util.*;
 import mindustry.*;
 import mindustry.game.*;
 import mindustry.game.EventType.*;
 import mindustry.gen.*;
 
-public final class DominationLogic implements Runnable {
+public final class DominationLogic implements PluginListener {
 
   private final DominationPlugin plugin;
+  private final Interval interval = new Interval();
 
   public DominationLogic(final DominationPlugin plugin) {
     this.plugin = plugin;
-    DistributorProvider.get().getPluginScheduler().syncRepeatingDelayedTask(this.plugin, this, 10, 10);
   }
 
   @Override
-  public void run() {
-    if (Vars.state.isPlaying() && plugin.isEnabled()) {
+  public void onPluginUpdate() {
+    if (interval.get(Time.toSeconds / 6) && Vars.state.isPlaying() && plugin.isEnabled()) {
       for (final var zone : plugin.getState().getZones()) {
         // Reset the team if the team got beaten
         if (zone.getTeam() != Team.derelict && !zone.getTeam().active()) {
@@ -49,7 +50,7 @@ public final class DominationLogic implements Runnable {
         // Count the number of units in the zone, per team
         final var units = new ObjectIntMap<Team>();
         Groups.unit.each(
-          unit -> unit.within(zone.getX(), zone.getY(), zone.getRadius()) && !unit.spawnedByCore,
+          unit -> unit.within(zone.getX(), zone.getY(), zone.getRadius()) && !unit.spawnedByCore(),
           unit -> units.increment(unit.team())
         );
 
@@ -89,7 +90,7 @@ public final class DominationLogic implements Runnable {
       if (leaderboard.size() == 1) {
         final var entry = leaderboard.entrySet().iterator().next();
         if (!entry.getKey().equals(Team.derelict) && entry.getValue() == plugin.getState().getZones().size() * 100) {
-          EventBus.mindustry().post(new GameOverEvent(entry.getKey()));
+          MoreEvents.post(new GameOverEvent(entry.getKey()));
           return;
         }
       }
@@ -113,9 +114,9 @@ public final class DominationLogic implements Runnable {
         }
 
         if (winners.size() == 1) {
-          EventBus.mindustry().post(new GameOverEvent(winners.get(0)));
+          MoreEvents.post(new GameOverEvent(winners.get(0)));
         } else {
-          EventBus.mindustry().post(new GameOverEvent(Team.derelict));
+          MoreEvents.post(new GameOverEvent(Team.derelict));
         }
       }
     }
