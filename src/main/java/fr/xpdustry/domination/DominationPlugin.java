@@ -31,20 +31,12 @@ import java.time.*;
 import java.util.*;
 import mindustry.*;
 import mindustry.game.*;
-import mindustry.gen.*;
 import net.mindustry_ddns.filestore.*;
 import net.mindustry_ddns.filestore.serial.*;
 import org.checkerframework.checker.nullness.qual.*;
 
 public final class DominationPlugin extends ExtendedPlugin {
 
-  public static final String DOMINATION_RULES = """
-    Welcome to [cyan]Domination PVP[].
-    The rules are simple. [red]Your team must capture all the zones.[]
-    To do so, a team sends their units in a zone until it reaches 100%.
-    You can obtain a list of the zones and their status with the command [orange]/domination zones[].
-    To see this message again, do [orange]/domination rules[].
-    """;
   private static final String DOMINATION_ENABLED_KEY = "xpdustry-domination:enabled";
 
   // TODO Make the DominationState object itself loadable to allow more options like game duration and stuff...
@@ -70,20 +62,14 @@ public final class DominationPlugin extends ExtendedPlugin {
   @Override
   public void onInit() {
     MoreEvents.subscribe(EventType.PlayEvent.class, event -> {
-      loader.setFile(getDirectory().resolve("maps").resolve(Vars.state.map.name() + ".json").toFile());
-      loader.set(new ArrayList<>());
-      loader.load();
-      state = new DominationState(loader);
+      this.loader.setFile(getDirectory().resolve("maps").resolve(Vars.state.map.name() + ".json").toFile());
+      this.loader.set(new ArrayList<>());
+      this.loader.load();
+      this.state = new DominationState(this.loader);
     });
 
-    MoreEvents.subscribe(EventType.PlayerJoin.class, event -> {
-      if (isEnabled()) {
-        Call.infoMessage(event.player.con(), DOMINATION_RULES);
-      }
-    });
-
-    addListener(new DominationLogic(this));
-    addListener(new DominationRenderer(this));
+    this.addListener(new DominationLogic(this));
+    this.addListener(new DominationRenderer(this));
   }
 
   @Override
@@ -99,7 +85,7 @@ public final class DominationPlugin extends ExtendedPlugin {
     final var annotations = clientCommands.createAnnotationParser(CommandSender.class);
     annotations.parse(new StartCommand(this));
     annotations.parse(new EditCommands(this));
-    annotations.parse(new StandardCommands(this));
+    annotations.parse(new ZoneListCommand(this));
   }
 
   public boolean isEnabled() {

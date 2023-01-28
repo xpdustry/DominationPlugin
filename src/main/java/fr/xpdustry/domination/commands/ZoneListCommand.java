@@ -21,13 +21,12 @@ package fr.xpdustry.domination.commands;
 import cloud.commandframework.annotations.*;
 import fr.xpdustry.distributor.api.command.sender.*;
 import fr.xpdustry.domination.*;
-import mindustry.gen.*;
 
-public final class StandardCommands {
+public final class ZoneListCommand {
 
   private final DominationPlugin domination;
 
-  public StandardCommands(final DominationPlugin domination) {
+  public ZoneListCommand(final DominationPlugin domination) {
     this.domination = domination;
   }
 
@@ -72,13 +71,5 @@ public final class StandardCommands {
       }
     }
     sender.sendMessage(builder.toString());
-  }
-
-  @CommandDescription("Read the rules of the game.")
-  @CommandMethod("domination rules")
-  public void readRules(
-    final CommandSender sender
-  ) {
-    Call.infoMessage(sender.getPlayer().con(), DominationPlugin.DOMINATION_RULES);
   }
 }

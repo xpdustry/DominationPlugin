@@ -47,7 +47,7 @@ public final class DominationRenderer implements PluginListener {
   }
 
   @Override
-  public void onPluginLoad() {
+  public void onPluginInit() {
     MoreEvents.subscribe(EventType.PlayEvent.class, event -> {
       labels.clear();
     });
@@ -55,7 +55,10 @@ public final class DominationRenderer implements PluginListener {
     MoreEvents.subscribe(EventType.PlayerLeave.class, event -> {
       viewers.remove(event.player);
     });
+  }
 
+  @Override
+  public void onPluginClientCommandsRegistration(final CommandHandler handler) {
     domination.getClientCommandManager().command(domination.getClientCommandManager()
       .commandBuilder("domination")
       .literal("zone")
@@ -106,10 +109,14 @@ public final class DominationRenderer implements PluginListener {
         final var entries = labels.entrySet().iterator();
         while (entries.hasNext()) {
           final var entry = entries.next();
-          if (!zones.remove(entry.getKey())) {
+          final var zone = entry.getKey();
+          final var label = entry.getValue();
+          if (!zones.remove(zone)) {
             entries.remove();
-            entry.getValue().remove();
-            Call.removeWorldLabel(entry.getValue().id());
+            label.remove();
+            Call.removeWorldLabel(label.id());
+          } else if (zone.getX() != label.getX() || zone.getY() != label.getY()) {
+            label.set(zone.getX(), zone.getY());
           }
         }
         for (final var zone : zones) {

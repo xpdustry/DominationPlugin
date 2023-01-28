@@ -27,6 +27,7 @@ import mindustry.*;
 import mindustry.game.*;
 import org.checkerframework.checker.nullness.qual.*;
 
+// TODO add name to zone
 public final class Zone {
 
   private int x;
@@ -92,7 +93,7 @@ public final class Zone {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(final Object o) {
     return  this == o || (
       o instanceof Zone zone
         && zone.x == x
@@ -123,7 +124,7 @@ public final class Zone {
       final var info = text.split(",", 3);
 
       if (info.length != 3) {
-        throw new IOException(text + " is not a coordinate.");
+        throw new IOException(text + " is not valid zone data (x,y,radius).");
       }
 
       for (int i = 0; i < info.length; i++) {

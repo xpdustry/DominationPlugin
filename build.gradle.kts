@@ -35,8 +35,8 @@ repositories {
         name = "xpdustry-repository-releases"
         mavenContent { releasesOnly() }
     }
-    maven("https://repo.xpdustry.fr/releases") {
-        name = "xpdustry-repository-legacy"
+    maven("https://maven.xpdustry.fr/legacy-releases") {
+        name = "xpdustry-repository-releases-legacy"
         mavenContent { releasesOnly() }
     }
     anukenJitpack()
@@ -55,7 +55,7 @@ dependencies {
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$junit")
 
     // Static analysis
-    annotationProcessor("com.uber.nullaway:nullaway:0.10.4")
+    annotationProcessor("com.uber.nullaway:nullaway:0.10.5")
     errorprone("com.google.errorprone:error_prone_core:2.16")
 }
 
