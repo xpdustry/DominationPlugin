@@ -1,7 +1,7 @@
 /*
- * DominationPlugin, a "capture the zone" like gamemode plugin.
+ * Domination, a "capture the zone" like gamemode plugin.
  *
- * Copyright (C) 2022  Xpdustry
+ * Copyright (C) 2024  Xpdustry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,43 +18,45 @@
  */
 package fr.xpdustry.domination;
 
-import java.time.*;
-import java.util.*;
-import java.util.stream.*;
-import mindustry.game.*;
-import net.mindustry_ddns.filestore.*;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import mindustry.game.Team;
+import net.mindustry_ddns.filestore.Store;
 
 public final class DominationState {
 
-  // TODO Separate zone data and zone state with a map
-  private static final Duration ONE_HOUR = Duration.ofHours(1L);
-  private final Store<List<Zone>> zones;
-  private final Instant start = Instant.now(Clock.systemUTC());
+    // TODO Separate zone data and zone state with a map
+    private static final Duration ONE_HOUR = Duration.ofHours(1L);
+    private final Store<List<Zone>> zones;
+    private final Instant start = Instant.now(Clock.systemUTC());
 
-  public DominationState(final Store<List<Zone>> zones) {
-    this.zones = zones;
-  }
+    public DominationState(final Store<List<Zone>> zones) {
+        this.zones = zones;
+    }
 
-  public Collection<Zone> getZones() {
-    return zones.get();
-  }
+    public Collection<Zone> getZones() {
+        return zones.get();
+    }
 
-  public Instant getStart() {
-    return start;
-  }
+    public Instant getStart() {
+        return start;
+    }
 
-  public Duration getRemainingTime() {
-    final var now = Instant.now(Clock.systemUTC());
-    return start.plus(ONE_HOUR).isBefore(now)
-      ? Duration.ZERO
-      : ONE_HOUR.minus(Duration.between(start, now));
-  }
+    public Duration getRemainingTime() {
+        final var now = Instant.now(Clock.systemUTC());
+        return start.plus(ONE_HOUR).isBefore(now) ? Duration.ZERO : ONE_HOUR.minus(Duration.between(start, now));
+    }
 
-  public Map<Team, Integer> getLeaderboard() {
-    return getZones().stream().collect(Collectors.toUnmodifiableMap(Zone::getTeam, Zone::getCapture, Integer::sum));
-  }
+    public Map<Team, Integer> getLeaderboard() {
+        return getZones().stream().collect(Collectors.toUnmodifiableMap(Zone::getTeam, Zone::getCapture, Integer::sum));
+    }
 
-  public void save() {
-    zones.save();
-  }
+    public void save() {
+        zones.save();
+    }
 }

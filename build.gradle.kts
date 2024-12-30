@@ -1,123 +1,65 @@
-import com.github.jengelman.gradle.plugins.shadow.tasks.ConfigureShadowRelocation
-import fr.xpdustry.toxopid.ModPlatform
-import fr.xpdustry.toxopid.task.GitHubArtifact
-import fr.xpdustry.toxopid.task.GitHubDownload
-import fr.xpdustry.toxopid.util.ModMetadata
-import fr.xpdustry.toxopid.util.anukenJitpack
-import fr.xpdustry.toxopid.util.mindustryDependencies
+import com.xpdustry.toxopid.extension.anukeXpdustry
+import com.xpdustry.toxopid.spec.ModMetadata
+import com.xpdustry.toxopid.spec.ModPlatform
+import com.xpdustry.toxopid.task.GithubAssetDownload
 import net.ltgt.gradle.errorprone.CheckSeverity
 import net.ltgt.gradle.errorprone.errorprone
 
 plugins {
-    id("net.kyori.indra") version "3.0.1"
-    id("net.kyori.indra.publishing") version "3.0.1"
-    id("net.kyori.indra.git") version "3.0.1"
-    id("net.kyori.indra.licenser.spotless") version "3.0.1"
-    id("net.ltgt.errorprone") version "2.0.2"
-    id("com.github.johnrengelman.shadow") version "7.1.2"
-    id("fr.xpdustry.toxopid") version "2.1.1"
+    alias(libs.plugins.spotless)
+    alias(libs.plugins.indra.common)
+    alias(libs.plugins.indra.git)
+    alias(libs.plugins.indra.publishing)
+    alias(libs.plugins.shadow)
+    alias(libs.plugins.toxopid)
+    alias(libs.plugins.errorprone.gradle)
 }
 
-val metadata = ModMetadata.fromJson(file("plugin.json").readText())
-group = property("props.project-group").toString()
-metadata.version = metadata.version + if (indraGit.headTag() == null) "-SNAPSHOT" else ""
+val metadata = ModMetadata.fromJson(rootProject.file("plugin.json"))
+if (indraGit.headTag() == null) metadata.version += "-SNAPSHOT"
+group = "com.xpdustry"
+val rootPackage = "com.xpdustry.domination"
 version = metadata.version
 description = metadata.description
 
 toxopid {
-    compileVersion.set("v" + metadata.minGameVersion)
-    platforms.add(ModPlatform.HEADLESS)
+    compileVersion = "v${metadata.minGameVersion}"
+    platforms = setOf(ModPlatform.SERVER)
 }
 
 repositories {
     mavenCentral()
+    anukeXpdustry()
     maven("https://maven.xpdustry.com/releases") {
-        name = "xpdustry-repository-releases"
+        name = "xpdustry-releases"
         mavenContent { releasesOnly() }
     }
     maven("https://maven.xpdustry.com/legacy-releases") {
-        name = "xpdustry-repository-releases-legacy"
+        name = "xpdustry-legacy-releases"
         mavenContent { releasesOnly() }
     }
-    maven("https://maven.xpdustry.com/snapshots") {
-        name = "xpdustry-repository-snapshots"
-        mavenContent { snapshotsOnly() }
-    }
-    anukenJitpack()
 }
 
 dependencies {
-    mindustryDependencies()
-    compileOnly("fr.xpdustry:distributor-api:3.0.0-SNAPSHOT")
-    annotationProcessor("fr.xpdustry:distributor-api:3.0.0-SNAPSHOT")
-    implementation("com.google.code.gson:gson:2.10")
-    implementation("net.mindustry_ddns:file-store:2.1.0")
+    compileOnly(toxopid.dependencies.mindustryCore)
+    compileOnly(toxopid.dependencies.arcCore)
 
-    val junit = "5.9.0"
-    testImplementation("org.junit.jupiter:junit-jupiter-params:$junit")
-    testImplementation("org.junit.jupiter:junit-jupiter-api:$junit")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:$junit")
+    compileOnly(libs.distributor.api)
+    implementation(libs.distributor.cloud)
+    implementation(libs.cloud.core)
+    implementation(libs.cloud.annotations)
 
-    // Static analysis
-    annotationProcessor("com.uber.nullaway:nullaway:0.10.5")
-    errorprone("com.google.errorprone:error_prone_core:2.16")
-}
+    implementation(libs.gson)
+    implementation(libs.filestore)
 
-tasks.withType(JavaCompile::class.java).configureEach {
-    options.errorprone {
-        disableWarningsInGeneratedCode.set(true)
-        disable("MissingSummary", "FutureReturnValueIgnored")
-        if (!name.contains("test", true)) {
-            check("NullAway", CheckSeverity.ERROR)
-            option("NullAway:AnnotatedPackages", project.property("props.root-package").toString())
-        }
-    }
-}
+    testImplementation(libs.junit.api)
+    testRuntimeOnly(libs.junit.engine)
 
-// Required for the GitHub actions
-tasks.register("getArtifactPath") {
-    doLast { println(tasks.shadowJar.get().archiveFile.get().toString()) }
-}
+    compileOnly(libs.checker.qual)
+    testCompileOnly(libs.checker.qual)
 
-// Relocates dependencies
-val relocate = tasks.create<ConfigureShadowRelocation>("relocateShadowJar") {
-    target = tasks.shadowJar.get()
-    prefix = project.property("props.root-package").toString() + ".shadow"
-}
-
-tasks.shadowJar {
-    // Configure the dependencies shading
-    dependsOn(relocate)
-    // Reduce shadow jar size by removing unused classes
-    minimize()
-    // Include the plugin.json file with the modified version
-    doFirst {
-        val temp = temporaryDir.resolve("plugin.json")
-        temp.writeText(metadata.toJson(true))
-        from(temp)
-    }
-    // Include the license of your project
-    from(rootProject.file("LICENSE.md")) {
-        into("META-INF")
-    }
-}
-
-tasks.build {
-    dependsOn(tasks.shadowJar)
-}
-
-val distributor = tasks.register<GitHubDownload>("downloadDistributor") {
-    artifacts.add(
-        GitHubArtifact.release("Xpdustry", "Distributor", "v3.0.0-rc.3", "Distributor.jar")
-    )
-}
-
-tasks.runMindustryServer {
-    mods.from(tasks.shadowJar, distributor)
-}
-
-tasks.runMindustryClient {
-    mods.setFrom()
+    annotationProcessor(libs.nullaway)
+    errorprone(libs.errorprone.core)
 }
 
 signing {
@@ -132,13 +74,13 @@ indra {
         minimumToolchain(17)
     }
 
-    publishSnapshotsTo("xpdustry", "https://maven.xpdustry.fr/snapshots")
-    publishReleasesTo("xpdustry", "https://maven.xpdustry.fr/releases")
+    publishSnapshotsTo("xpdustry", "https://maven.xpdustry.com/snapshots")
+    publishReleasesTo("xpdustry", "https://maven.xpdustry.com/releases")
 
-    gpl3OnlyLicense()
+    mitLicense()
 
-    if (metadata.repo.isNotBlank()) {
-        val repo = metadata.repo.split("/")
+    if (metadata.repository.isNotBlank()) {
+        val repo = metadata.repository.split("/")
         github(repo[0], repo[1]) {
             ci(true)
             issues(true)
@@ -149,20 +91,79 @@ indra {
     configurePublications {
         pom {
             organization {
-                name.set("Xpdustry")
-                url.set("https://www.xpdustry.fr")
-            }
-
-            developers {
-                developer {
-                    id.set("Phinner")
-                    timezone.set("Europe/Brussels")
-                }
+                name = "xpdustry"
+                url = "https://www.xpdustry.com"
             }
         }
     }
 }
 
-indraSpotlessLicenser {
-    licenseHeaderFile(rootProject.file("LICENSE_HEADER.md"))
+spotless {
+    java {
+        palantirJavaFormat()
+        formatAnnotations()
+        importOrder("", "\\#")
+        // custom("no-wildcard-imports") { it.apply { if (contains("*;\n")) error("No wildcard imports allowed") } }
+        licenseHeaderFile(rootProject.file("HEADER.txt"))
+        bumpThisNumberIfACustomStepChanges(1)
+    }
+    kotlinGradle {
+        ktlint()
+    }
+}
+
+val generateMetadataFile by tasks.registering {
+    inputs.property("metadata", metadata)
+    val output = temporaryDir.resolve("plugin.json")
+    outputs.file(output)
+    doLast {
+        output.writeText(ModMetadata.toJson(metadata))
+    }
+}
+
+tasks.shadowJar {
+    archiveFileName = "${metadata.name}.jar"
+    archiveClassifier = "plugin"
+    from(generateMetadataFile)
+    from(rootProject.file("LICENSE.md")) { into("META-INF") }
+    minimize()
+    // relocate("com.distributor")
+    // relocate("com.distributor")
+    // relocate("com.distributor")
+}
+
+tasks.register<Copy>("release") {
+    dependsOn(tasks.build)
+    from(tasks.shadowJar)
+    destinationDir = temporaryDir
+}
+
+tasks.withType<JavaCompile> {
+    options.errorprone {
+        disableWarningsInGeneratedCode = true
+        disable("MissingSummary", "InlineMeSuggester")
+        if (!name.contains("test", ignoreCase = true)) {
+            check("NullAway", CheckSeverity.ERROR)
+            option("NullAway:AnnotatedPackages", rootPackage)
+            option("NullAway:TreatGeneratedAsUnannotated", true)
+        }
+    }
+}
+
+val downloadSlf4md by tasks.registering(GithubAssetDownload::class) {
+    owner = "xpdustry"
+    repo = "slf4md"
+    asset = "slf4md-simple.jar"
+    version = "v${libs.versions.slf4md.get()}"
+}
+
+val downloadDistributorCommon by tasks.registering(GithubAssetDownload::class) {
+    owner = "xpdustry"
+    repo = "distributor"
+    asset = "distributor-common.jar"
+    version = "v${libs.versions.distributor.get()}"
+}
+
+tasks.runMindustryServer {
+    mods.from(downloadSlf4md, downloadDistributorCommon)
 }

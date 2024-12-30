@@ -1,7 +1,7 @@
 /*
- * DominationPlugin, a "capture the zone" like gamemode plugin.
+ * Domination, a "capture the zone" like gamemode plugin.
  *
- * Copyright (C) 2022  Xpdustry
+ * Copyright (C) 2024  Xpdustry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,58 +18,55 @@
  */
 package fr.xpdustry.domination.commands;
 
-import cloud.commandframework.annotations.*;
-import fr.xpdustry.distributor.api.command.sender.*;
-import fr.xpdustry.domination.*;
+import com.xpdustry.distributor.api.command.CommandSender;
+import fr.xpdustry.domination.DominationPlugin;
+import fr.xpdustry.domination.Zone;
+import org.incendo.cloud.annotations.Command;
+import org.incendo.cloud.annotations.CommandDescription;
 
 public final class ZoneListCommand {
 
-  private final DominationPlugin domination;
+    private final DominationPlugin domination;
 
-  public ZoneListCommand(final DominationPlugin domination) {
-    this.domination = domination;
-  }
+    public ZoneListCommand(final DominationPlugin domination) {
+        this.domination = domination;
+    }
 
-  @CommandDescription("Get the data about the zones.")
-  @CommandMethod("domination zones")
-  public void listZones(
-    final CommandSender sender
-  ) {
-    final var builder = new StringBuilder();
-    final var captured = domination.getState().getZones().stream()
-      .map(Zone::getTeam)
-      .filter(sender.getPlayer().team()::equals)
-      .count();
-    builder.append("[orange]");
-    if (captured == domination.getState().getZones().size()) {
-      builder
-        .append("Your team is about to capture all the zones :\n");
-    } else {
-      builder
-        .append("Your team has [red]")
-        .append(domination.getState().getZones().size() - captured)
-        .append("[] more zones to capture :\n");
+    @Command("domination zones")
+    @CommandDescription("Get the data about the zones.")
+    public void listZones(final CommandSender sender) {
+        final var builder = new StringBuilder();
+        final var captured = domination.getState().getZones().stream()
+                .map(Zone::getTeam)
+                .filter(sender.getPlayer().team()::equals)
+                .count();
+        builder.append("[orange]");
+        if (captured == domination.getState().getZones().size()) {
+            builder.append("Your team is about to capture all the zones :\n");
+        } else {
+            builder.append("Your team has [red]")
+                    .append(domination.getState().getZones().size() - captured)
+                    .append("[] more zones to capture :\n");
+        }
+        final var iterator = domination.getState().getZones().iterator();
+        while (iterator.hasNext()) {
+            final var zone = iterator.next();
+            builder.append("[white]- Zone at (")
+                    .append(zone.getX() / 8)
+                    .append(", ")
+                    .append(zone.getY() / 8)
+                    .append(") is captured by ")
+                    .append("[#")
+                    .append(zone.getTeam().color)
+                    .append("]")
+                    .append(zone.getTeam().name)
+                    .append("[] at ")
+                    .append(zone.getCapture())
+                    .append("% percent.");
+            if (iterator.hasNext()) {
+                builder.append('\n');
+            }
+        }
+        sender.reply(builder.toString());
     }
-    final var iterator = domination.getState().getZones().iterator();
-    while (iterator.hasNext()) {
-      final var zone = iterator.next();
-      builder
-        .append("[white]- Zone at (")
-        .append(zone.getX() / 8)
-        .append(", ")
-        .append(zone.getY() / 8)
-        .append(") is captured by ")
-        .append("[#")
-        .append(zone.getTeam().color)
-        .append("]")
-        .append(zone.getTeam().name)
-        .append("[] at ")
-        .append(zone.getCapture())
-        .append("% percent.");
-      if (iterator.hasNext()) {
-        builder.append('\n');
-      }
-    }
-    sender.sendMessage(builder.toString());
-  }
 }

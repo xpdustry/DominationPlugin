@@ -1,7 +1,7 @@
 /*
- * DominationPlugin, a "capture the zone" like gamemode plugin.
+ * Domination, a "capture the zone" like gamemode plugin.
  *
- * Copyright (C) 2022  Xpdustry
+ * Copyright (C) 2024  Xpdustry
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,81 +18,81 @@
  */
 package fr.xpdustry.domination.commands;
 
-import cloud.commandframework.annotations.*;
-import cloud.commandframework.annotations.specifier.*;
-import fr.xpdustry.distributor.api.command.sender.*;
-import fr.xpdustry.domination.*;
-import mindustry.*;
+import com.xpdustry.distributor.api.command.CommandSender;
+import fr.xpdustry.domination.DominationPlugin;
+import fr.xpdustry.domination.Zone;
+import mindustry.Vars;
+import org.incendo.cloud.annotation.specifier.Range;
+import org.incendo.cloud.annotations.Argument;
+import org.incendo.cloud.annotations.Command;
+import org.incendo.cloud.annotations.Flag;
+import org.incendo.cloud.annotations.Permission;
 
 public final class EditCommands {
 
-  private final DominationPlugin domination;
+    private final DominationPlugin domination;
 
-  public EditCommands(final DominationPlugin domination) {
-    this.domination = domination;
-  }
+    public EditCommands(final DominationPlugin domination) {
+        this.domination = domination;
+    }
 
-  @CommandPermission("fr.xpdustry.domination.zone.edit")
-  @CommandMethod("domination zone radius <x> <y> <radius>")
-  public void setZoneSize(
-    final CommandSender sender,
-    final @Argument("x") @Range(min = "0") int x,
-    final @Argument("y") @Range(min = "0") int y,
-    final @Argument("radius") @Range(min = "1") int radius,
-    final @Flag(value = "precise", aliases = "p") boolean precise
-  ) {
-    final int tx = precise ? x : x * Vars.tilesize;
-    final int ty = precise ? y : y * Vars.tilesize;
-    domination.getState().getZones()
-      .stream()
-      .filter(zone -> zone.getX() == tx && zone.getY() == ty)
-      .findFirst()
-      .ifPresentOrElse(
-        zone -> {
-          zone.setRadius(radius);
-          domination.getState().save();
-          sender.sendMessage("The radius of the zone (%d, %d) has been set to %d".formatted(tx, ty, radius));
-        },
-        () -> {
-          sender.sendMessage("There is no zone at (%d, %d).".formatted(tx, ty));
+    @Command("domination zone radius <x> <y> <radius>")
+    @Permission("com.xpdustry.domination.zone.edit")
+    public void setZoneSize(
+            final CommandSender sender,
+            final @Argument("x") @Range(min = "0") int x,
+            final @Argument("y") @Range(min = "0") int y,
+            final @Argument("radius") @Range(min = "1") int radius,
+            final @Flag(value = "precise", aliases = "p") boolean precise) {
+        final int tx = precise ? x : x * Vars.tilesize;
+        final int ty = precise ? y : y * Vars.tilesize;
+        domination.getState().getZones().stream()
+                .filter(zone -> zone.getX() == tx && zone.getY() == ty)
+                .findFirst()
+                .ifPresentOrElse(
+                        zone -> {
+                            zone.setRadius(radius);
+                            domination.getState().save();
+                            sender.reply(
+                                    "The radius of the zone (%d, %d) has been set to %d".formatted(tx, ty, radius));
+                        },
+                        () -> {
+                            sender.reply("There is no zone at (%d, %d).".formatted(tx, ty));
+                        });
+    }
+
+    @Command("domination zone add <x> <y>")
+    @Permission("com.xpdustry.domination.zone.edit")
+    public void addZone(
+            final CommandSender sender,
+            final @Argument("x") @Range(min = "0") int x,
+            final @Argument("y") @Range(min = "0") int y,
+            final @Flag(value = "precise", aliases = "p") boolean precise) {
+        final int tx = precise ? x : x * Vars.tilesize;
+        final int ty = precise ? y : y * Vars.tilesize;
+        if (domination.getState().getZones().stream().anyMatch(zone -> zone.getX() == tx && zone.getY() == ty)) {
+            sender.reply("A zone is already present at this location.");
+        } else {
+            domination.getState().getZones().add(new Zone(tx, ty, 5));
+            domination.getState().save();
+            sender.reply("A zone has been added at (%d, %d).".formatted(tx, ty));
         }
-    );
-  }
-
-  @CommandPermission("fr.xpdustry.domination.zone.edit")
-  @CommandMethod("domination zone add <x> <y>")
-  public void addZone(
-    final CommandSender sender,
-    final @Argument("x") @Range(min = "0") int x,
-    final @Argument("y") @Range(min = "0") int y,
-    final @Flag(value = "precise", aliases = "p") boolean precise
-  ) {
-    final int tx = precise ? x : x * Vars.tilesize;
-    final int ty = precise ? y : y * Vars.tilesize;
-    if (domination.getState().getZones().stream().anyMatch(zone -> zone.getX() == tx && zone.getY() == ty)) {
-      sender.sendMessage("A zone is already present at this location.");
-    } else {
-      domination.getState().getZones().add(new Zone(tx, ty, 5));
-      domination.getState().save();
-      sender.sendMessage("A zone has been added at (%d, %d).".formatted(tx, ty));
     }
-  }
 
-  @CommandPermission("fr.xpdustry.domination.zone.edit")
-  @CommandMethod("domination zone remove <x> <y>")
-  public void removeZone(
-    final CommandSender sender,
-    final @Argument("x") @Range(min = "0") int x,
-    final @Argument("y") @Range(min = "0") int y,
-    final @Flag(value = "precise", aliases = "p") boolean precise
-  ) {
-    final int tx = precise ? x : x * Vars.tilesize;
-    final int ty = precise ? y : y * Vars.tilesize;
-    if (domination.getState().getZones().removeIf(zone -> zone.getX() == tx && zone.getY() == ty)) {
-      domination.getState().save();
-      sender.sendMessage("The zone at (%d, %d) has been removed.".formatted(tx, ty));
-    } else {
-      sender.sendMessage("No zones are present at this location.");
+    @Command("domination zone remove <x> <y>")
+    @Permission("com.xpdustry.domination.zone.edit")
+    public void removeZone(
+            final CommandSender sender,
+            final @Argument("x") @Range(min = "0") int x,
+            final @Argument("y") @Range(min = "0") int y,
+            final @Flag(value = "precise", aliases = "p") boolean precise) {
+        final int tx = precise ? x : x * Vars.tilesize;
+        final int ty = precise ? y : y * Vars.tilesize;
+        if (domination.getState().getZones().removeIf(zone -> zone.getX() == tx && zone.getY() == ty)) {
+            domination.getState().save();
+            sender.reply("The zone at (%d, %d) has been removed.".formatted(tx, ty));
+        } else {
+            sender.reply("No zones are present at this location.");
+        }
     }
-  }
 }
