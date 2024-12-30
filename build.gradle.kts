@@ -31,21 +31,25 @@ toxopid {
 
 repositories {
     mavenCentral()
-    maven("https://maven.xpdustry.fr/releases") {
+    maven("https://maven.xpdustry.com/releases") {
         name = "xpdustry-repository-releases"
         mavenContent { releasesOnly() }
     }
-    maven("https://maven.xpdustry.fr/legacy-releases") {
+    maven("https://maven.xpdustry.com/legacy-releases") {
         name = "xpdustry-repository-releases-legacy"
         mavenContent { releasesOnly() }
+    }
+    maven("https://maven.xpdustry.com/snapshots") {
+        name = "xpdustry-repository-snapshots"
+        mavenContent { snapshotsOnly() }
     }
     anukenJitpack()
 }
 
 dependencies {
     mindustryDependencies()
-    compileOnly("fr.xpdustry:distributor-api:3.0.0-rc.3")
-    annotationProcessor("fr.xpdustry:distributor-api:3.0.0-rc.3")
+    compileOnly("fr.xpdustry:distributor-api:3.0.0-SNAPSHOT")
+    annotationProcessor("fr.xpdustry:distributor-api:3.0.0-SNAPSHOT")
     implementation("com.google.code.gson:gson:2.10")
     implementation("net.mindustry_ddns:file-store:2.1.0")
 
