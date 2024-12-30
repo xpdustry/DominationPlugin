@@ -69,7 +69,7 @@ public final class DominationPlugin extends AbstractMindustryPlugin {
         Distributor.get().getEventBus().subscribe(EventType.PlayEvent.class, this, event -> {
             this.loader.setFile(getDirectory()
                     .resolve("maps")
-                    .resolve(Vars.state.map.name() + ".json")
+                    .resolve(sanitizeFileName(Vars.state.map.name()) + ".json")
                     .toFile());
             this.loader.set(new ArrayList<>());
             this.loader.load();
@@ -117,5 +117,9 @@ public final class DominationPlugin extends AbstractMindustryPlugin {
 
     public MindustryCommandManager<CommandSender> getClientCommandManager() {
         return clientCommands;
+    }
+
+    private String sanitizeFileName(final String input) {
+        return input.replaceAll("[<>:\"/|?*]", "_");
     }
 }
