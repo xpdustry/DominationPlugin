@@ -127,9 +127,12 @@ tasks.shadowJar {
     from(generateMetadataFile)
     from(rootProject.file("LICENSE.md")) { into("META-INF") }
     minimize()
-    // relocate("com.distributor")
-    // relocate("com.distributor")
-    // relocate("com.distributor")
+    val shadowPackage = "$rootPackage.shadow"
+    relocate("com.google.gson", "$shadowPackage.gson")
+    relocate("io.leangen.geantyref", "$shadowPackage.geantyref")
+    relocate("net.mindustry_ddns.filestore", "$shadowPackage.filestore")
+    relocate("org.incendo.cloud", "$shadowPackage.cloud")
+    mergeServiceFiles()
 }
 
 tasks.register<Copy>("release") {

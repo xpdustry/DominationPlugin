@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package fr.xpdustry.domination;
+package com.xpdustry.domination;
 
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;

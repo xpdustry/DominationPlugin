@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package fr.xpdustry.domination;
+package com.xpdustry.domination;
 
 import arc.util.CommandHandler;
 import com.google.gson.FieldNamingPolicy;
@@ -25,10 +25,10 @@ import com.xpdustry.distributor.api.Distributor;
 import com.xpdustry.distributor.api.command.CommandSender;
 import com.xpdustry.distributor.api.command.cloud.MindustryCommandManager;
 import com.xpdustry.distributor.api.plugin.AbstractMindustryPlugin;
-import fr.xpdustry.domination.Zone.Adapter;
-import fr.xpdustry.domination.commands.EditCommands;
-import fr.xpdustry.domination.commands.StartCommand;
-import fr.xpdustry.domination.commands.ZoneListCommand;
+import com.xpdustry.domination.Zone.Adapter;
+import com.xpdustry.domination.commands.EditCommands;
+import com.xpdustry.domination.commands.StartCommand;
+import com.xpdustry.domination.commands.ZoneListCommand;
 import io.leangen.geantyref.TypeToken;
 import java.time.Duration;
 import java.util.ArrayList;

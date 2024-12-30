@@ -16,12 +16,12 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package fr.xpdustry.domination.commands;
+package com.xpdustry.domination.commands;
 
 import arc.Core;
 import arc.util.Strings;
 import com.xpdustry.distributor.api.command.CommandSender;
-import fr.xpdustry.domination.DominationPlugin;
+import com.xpdustry.domination.DominationPlugin;
 import mindustry.Vars;
 import mindustry.game.Gamemode;
 import mindustry.net.WorldReloader;

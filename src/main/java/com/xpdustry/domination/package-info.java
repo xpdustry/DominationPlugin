@@ -16,7 +16,7 @@
             TypeUseLocation.UPPER_BOUND,
             TypeUseLocation.OTHERWISE,
         })
-package fr.xpdustry.domination;
+package com.xpdustry.domination;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.framework.qual.DefaultQualifier;

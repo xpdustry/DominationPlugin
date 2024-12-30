@@ -7,7 +7,7 @@
   "minGameVersion": "146",
   "hidden": true,
   "java": true,
-  "main": "fr.xpdustry.domination.DominationPlugin",
+  "main": "com.xpdustry.domination.DominationPlugin",
   "repo": "xpdustry/domination",
   "dependencies": ["distributor-common"]
 }

@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package fr.xpdustry.domination;
+package com.xpdustry.domination;
 
 import arc.math.Mathf;
 import arc.math.geom.Geometry;
@@ -69,7 +69,7 @@ public final class DominationRenderer implements PluginListener {
                         .literal("view")
                         .commandDescription(
                                 CommandDescription.commandDescription("Enable/Disable domination zone view mode."))
-                        .permission("fr.xpdustry.domination.map.zone.view")
+                        .permission("com.xpdustry.domination.map.zone.view")
                         .handler(ctx -> {
                             final var player = ctx.sender().getPlayer();
                             if (!this.viewers.add(player)) {
