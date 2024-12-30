@@ -50,7 +50,7 @@ dependencies {
     mindustryDependencies()
     compileOnly("fr.xpdustry:distributor-api:3.0.0-SNAPSHOT")
     annotationProcessor("fr.xpdustry:distributor-api:3.0.0-SNAPSHOT")
-    implementation("com.google.code.gson:gson:2.10")
+    implementation("com.google.code.gson:gson:2.11.0")
     implementation("net.mindustry_ddns:file-store:2.1.0")
 
     val junit = "5.9.0"
