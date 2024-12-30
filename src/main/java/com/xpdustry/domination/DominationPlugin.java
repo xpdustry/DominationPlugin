@@ -26,9 +26,6 @@ import com.xpdustry.distributor.api.command.CommandSender;
 import com.xpdustry.distributor.api.command.cloud.MindustryCommandManager;
 import com.xpdustry.distributor.api.plugin.AbstractMindustryPlugin;
 import com.xpdustry.domination.Zone.Adapter;
-import com.xpdustry.domination.commands.EditCommands;
-import com.xpdustry.domination.commands.StartCommand;
-import com.xpdustry.domination.commands.ZoneListCommand;
 import io.leangen.geantyref.TypeToken;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -95,8 +92,7 @@ public final class DominationPlugin extends AbstractMindustryPlugin {
         final var annotations =
                 new AnnotationParser<>(clientCommands, CommandSender.class, params -> CommandMeta.empty());
         annotations.parse(new StartCommand(this));
-        annotations.parse(new EditCommands(this));
-        annotations.parse(new ZoneListCommand(this));
+        annotations.parse(new ZoneCommands(this));
     }
 
     public boolean isEnabled() {
