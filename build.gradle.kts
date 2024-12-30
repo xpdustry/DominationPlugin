@@ -60,7 +60,7 @@ dependencies {
 
     // Static analysis
     annotationProcessor("com.uber.nullaway:nullaway:0.10.5")
-    errorprone("com.google.errorprone:error_prone_core:2.16")
+    errorprone("com.google.errorprone:error_prone_core:2.36.0")
 }
 
 tasks.withType(JavaCompile::class.java).configureEach {
